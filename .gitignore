@@ -1,0 +1,7 @@
+node_modules/
+dist/
+qa-*.png
+qa-*.jpg
+.playwright-mcp/
+.DS_Store
+*.local

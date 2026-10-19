@@ -1,0 +1,18 @@
+{
+  "name": "coco-little-world",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Coco's Little World — a cozy 3D adventure around New York, Paris and Tokyo.",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0"
+  },
+  "dependencies": {
+    "three": "0.169.0"
+  },
+  "devDependencies": {
+    "vite": "5.4.10"
+  }
+}
