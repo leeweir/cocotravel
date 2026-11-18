@@ -12,16 +12,16 @@
       data-exclude-hash="true"
     ></script>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#f7ead2" />
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <title>小小旅行家 Coco · 环游世界</title>
-    <script type="module" crossorigin src="./assets/index-CCAkpE_J.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-fGId0nfG.css">
+    <script type="module" crossorigin src="./assets/index-SwifqIZw.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-22gkmC_a.css">
   </head>
   <body>
     <div id="app">
-      <canvas id="scene" aria-label="3D game scene"></canvas>
+      <canvas id="scene" aria-label="Coco 的三维旅行世界"></canvas>
 
       <!-- ============ LOADING ============ -->
       <div id="loading" class="screen">
@@ -46,28 +46,28 @@
 
       <!-- ============ TITLE ============ -->
       <div id="title" class="screen hidden">
-        <div class="title-art" id="title-art"></div>
+        <picture class="title-art">
+          <source media="(max-aspect-ratio: 1/1)" srcset="./assets/title-mobile-school-DBDQqCeh.webp" />
+          <img id="title-art" src="./assets/title-school-CkW2TC78.webp" alt="" fetchpriority="high" />
+        </picture>
         <div class="title-shade"></div>
         <div class="title-content">
-          <div class="title-kicker"><span></span> A COZY LITTLE JOURNEY <span></span></div>
           <div class="title-logo">
-            <div class="logo-cn">小小旅行家</div>
-            <div class="logo-en">Coco<span class="logo-dot">·</span>s World</div>
+            <div class="logo-en" lang="en">Coco’s World</div>
+            <h1 class="logo-cn">小小旅行家</h1>
           </div>
-          <p class="title-tagline">三座城市，五颗星火，<br/>和一个七岁女孩的大大冒险。</p>
+          <p class="title-tagline">带上奶奶的护照，<br/>去三座城市，找回散落的星火。</p>
           <div class="title-actions">
-            <button id="btn-start" class="btn btn-primary">开始旅程<span class="btn-arrow">→</span></button>
-            <button id="btn-continue" class="btn btn-ghost hidden">继续旅程</button>
+            <button id="btn-continue" class="btn btn-primary hidden">继续旅程</button>
+            <button id="btn-start" class="btn btn-primary">开始旅程<span class="btn-arrow" aria-hidden="true">→</span></button>
           </div>
-          <div class="title-cities">
-            <span><i class="dot dot-ny"></i>纽约</span>
-            <span><i class="dot dot-paris"></i>巴黎</span>
-            <span><i class="dot dot-tokyo"></i>东京</span>
+          <div class="title-cities" aria-label="旅行路线">
+            <span data-seal="usa">纽约</span><i aria-hidden="true"></i><span data-seal="france">巴黎</span><i aria-hidden="true"></i><span data-seal="japan">东京</span>
           </div>
         </div>
         <div class="title-foot">
-          <span>WASD 移动 · 空格 跳跃 · E 互动</span>
-          <span>v1.0 · 献给所有好奇的小孩</span>
+          <span class="desktop-copy">WASD 移动 · 拖动视角 · 空格跳跃</span>
+          <span class="touch-copy">左手摇杆移动 · 右手滑动转动视角</span>
         </div>
       </div>
 
@@ -85,6 +85,10 @@
             <div class="objective-title"><span class="objective-pin"></span><span id="objective-title">旅程目标</span></div>
             <div class="objective-text" id="objective-text">在岛上四处看看，和人们打个招呼。</div>
           </div>
+          <div class="compass-wrap" id="compass">
+            <div class="compass-arrow" id="compass-arrow"></div>
+            <div class="compass-label" id="compass-label">星火</div>
+          </div>
         </div>
 
         <div class="hud-topright">
@@ -100,13 +104,8 @@
           </div>
         </div>
 
-        <div class="compass-wrap" id="compass">
-          <div class="compass-arrow" id="compass-arrow"></div>
-          <div class="compass-label" id="compass-label">星火</div>
-        </div>
-
         <div id="prompt" class="prompt hidden">
-          <span class="prompt-key">E</span>
+          <span class="prompt-key desktop-copy">E</span>
           <span class="prompt-text" id="prompt-text">交谈</span>
         </div>
 
@@ -117,14 +116,14 @@
           <div><kbd>Tab</kbd> 手账</div>
         </div>
 
-        <div id="toasts" class="toasts"></div>
+        <div id="toasts" class="toasts" role="status"></div>
         <div id="quest-flash" class="quest-flash hidden"></div>
 
         <div class="touch-controls hidden" id="touch-controls">
           <div class="joystick" id="joystick"><div class="joystick-knob" id="joystick-knob"></div></div>
           <div class="touch-actions">
-            <button class="touch-btn touch-jump" id="touch-jump">跳</button>
-            <button class="touch-btn touch-act" id="touch-act">E</button>
+            <button class="touch-btn touch-jump" id="touch-jump" aria-label="跳跃">跳跃</button>
+            <button class="touch-btn touch-act" id="touch-act" aria-label="互动">互动</button>
           </div>
         </div>
       </div>
@@ -133,7 +132,7 @@
       <div id="dialogue" class="dialogue hidden">
         <div class="dialogue-card">
           <div class="portrait-wrap">
-            <canvas id="portrait" width="160" height="160"></canvas>
+            <img id="portrait" width="104" height="104" alt="" />
             <div class="portrait-tape"></div>
           </div>
           <div class="dialogue-main">
@@ -154,7 +153,7 @@
       <div id="journal" class="overlay hidden">
         <div class="journal-book">
           <div class="journal-ribbon"></div>
-          <button class="close-btn" id="btn-journal-close">✕</button>
+          <button class="close-btn" id="btn-journal-close" aria-label="合上旅行手账">✕</button>
           <header class="journal-head">
             <div>
               <div class="journal-kicker">COCO'S TRAVEL JOURNAL</div>
@@ -206,14 +205,14 @@
       <!-- ============ HELP ============ -->
       <div id="help" class="overlay hidden">
         <div class="help-card">
-          <button class="close-btn" id="btn-help-close">✕</button>
+          <button class="close-btn" id="btn-help-close" aria-label="关闭旅行指南">✕</button>
           <div class="journal-kicker">A LITTLE GUIDE</div>
           <h2>旅行小指南</h2>
           <div class="help-grid">
-            <div class="help-item"><span class="help-num">01</span><h3>寻找星火</h3><p>岛上散落着五颗发光的星火。有些藏在角落，有些需要跳上箱子、爬上台阶才能拿到。</p></div>
-            <div class="help-item"><span class="help-num">02</span><h3>帮助居民</h3><p>头顶有金色感叹号的人需要帮助。听听他们的故事，找回丢失的东西，就能收获星火。</p></div>
-            <div class="help-item"><span class="help-num">03</span><h3>点亮城市</h3><p>集齐五颗星火后，去地标下的光之门按下 E，让这座城市重新亮起来。</p></div>
-            <div class="help-item"><span class="help-num">04</span><h3>继续旅行</h3><p>旅行手账（Tab）里收着护照和笔记。点亮三座城市，Coco 就能完成这场环游世界的约定。</p></div>
+            <div class="help-item"><span class="help-num">01</span><h3>寻找星火</h3><p>每座城市有三颗星火可以直接收集。看看小路尽头、箱子上和台阶旁，靠近发光的星火就能拾取。</p></div>
+            <div class="help-item"><span class="help-num">02</span><h3>帮助居民</h3><p>另外两颗在居民手里。和头顶有金色感叹号的人打个招呼，再把找到的东西交还给他们。</p></div>
+            <div class="help-item"><span class="help-num">03</span><h3>点亮城市</h3><p>集齐五颗星火后，前往地标下的光之门互动，让这座城市重新亮起来。</p></div>
+            <div class="help-item"><span class="help-num">04</span><h3>继续旅行</h3><p>打开旅行手账就能翻看护照和笔记。点亮三座城市，Coco 就能完成这场环游世界的约定。</p></div>
           </div>
           <button class="btn btn-primary" id="btn-help-ok">知道啦</button>
         </div>
