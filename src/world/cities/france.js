@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { batchRigidProp } from '../../core/static-meshes.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { THEMES, createEnvironment, createIsland, createBirds, createPetals } from '../environment.js';
 import {
@@ -103,7 +104,7 @@ function createBalustrade(length, color = '#d6cab2') {
     cap.castShadow = true;
     group.add(cap);
   }
-  return group;
+  return batchRigidProp(group);
 }
 
 function createStreetLamp() {
@@ -139,7 +140,7 @@ function createStreetLamp() {
   finial.position.y = 4.38;
   group.add(finial);
   group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-  return group;
+  return batchRigidProp(group);
 }
 
 function createMetroEntrance() {
@@ -238,7 +239,7 @@ function createMetroEntrance() {
       o.receiveShadow = true;
     }
   });
-  return group;
+  return batchRigidProp(group);
 }
 
 function createWallaceFountain() {
@@ -378,7 +379,7 @@ function createEasel() {
   brush.position.set(0.64, 0.22, 0.42);
   group.add(brush);
   group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-  return group;
+  return batchRigidProp(group);
 }
 
 function createVintageCar() {
@@ -442,7 +443,7 @@ function createVintageCar() {
     }
   }
   group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-  return group;
+  return batchRigidProp(group);
 }
 
 function createMorrisColumn() {
@@ -514,7 +515,7 @@ function createMorrisColumn() {
   group.add(ball);
 
   group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-  return group;
+  return batchRigidProp(group);
 }
 
 /* ------------------------------------------------------------------ */
@@ -633,7 +634,7 @@ export function createFrance(scene) {
   root.add(eastRow);
 
   const northRow = createBuildingRow({
-    x: 0, z: -46.5, yaw: 0, length: 28,
+    x: -16.5, z: -44, yaw: 0, length: 28,
     styles: ['haussmann'], minWidth: 8.5, maxWidth: 10.5,
     depth: [7, 8], floors: [4, 5], floorHeight: 3.1, seed: 67, gap: 0.4,
     shops: false, balconies: true, mansard: true, fireEscapes: false, stoopEvery: 99,
@@ -653,7 +654,7 @@ export function createFrance(scene) {
   }
   addCameraBlocker(0, 42.7, 39, 0.5);
   addCameraBlocker(40.3, 7.4, 0.5, 28.4);
-  addCameraBlocker(0, -42.3, 29, 0.5);
+  addCameraBlocker(-16.5, -39.8, 29, 0.5);
 
   /* ---------------- carousel & café ---------------- */
   const carousel = createCarousel();
@@ -707,7 +708,7 @@ export function createFrance(scene) {
   cafeStand.position.set(14.5, 0, 25);
   root.add(cafeStand);
 
-  const boulangerie = createSign('CAFÉ  D\'ODETTE', 'pain · café · rêves', { width: 2.6, height: 0.86, postH: 2.7 });
+  const boulangerie = createSign('CAFÉ  D\'ODETTE', 'pain · café · rêves', { city: 'france', width: 2.6, height: 0.86, postH: 2.7 });
   boulangerie.position.set(14.5, 0, 26.8);
   boulangerie.rotation.y = 0.08;
   root.add(boulangerie);
@@ -747,17 +748,17 @@ export function createFrance(scene) {
   avenueLampB.position.set(34.0, 0, 21.5);
   root.add(avenueLampB);
 
-  const riverSign = createSign('PONT DES ARTS', 'pont · 1804', { width: 2.4, height: 0.7, postH: 2.0, style: 'post' });
+  const riverSign = createSign('PONT DES ARTS', 'pont · 1804', { city: 'france', width: 2.4, height: 0.7, postH: 2.0, style: 'post' });
   riverSign.position.set(5.4, 0, -5.2);
   riverSign.rotation.y = -0.08;
   root.add(riverSign);
 
-  const champsSign = createSign('CHAMPS-ÉLYSÉES', 'avenue · 1670', { width: 2.7, height: 0.82, postH: 2.2, style: 'post' });
+  const champsSign = createSign('CHAMPS-ÉLYSÉES', 'avenue · 1670', { city: 'france', width: 2.7, height: 0.82, postH: 2.2, style: 'post' });
   champsSign.position.set(34.3, 0, 8.2);
   champsSign.rotation.y = 0.36;
   root.add(champsSign);
 
-  const welcome = createSign('PARIS', '巴黎 · 光之城', { width: 2.8, height: 1.0, postH: 2.1, style: 'post' });
+  const welcome = createSign('PARIS', '巴黎 · 光之城', { city: 'france', width: 2.8, height: 1.0, postH: 2.1, style: 'post' });
   welcome.position.set(-5.0, 0, 27.5);
   welcome.rotation.y = 0.25;
   root.add(welcome);
@@ -784,6 +785,8 @@ export function createFrance(scene) {
     treeColliders.push({ type: 'circle', x, z, r: 0.2 * scale + 0.08 });
   }
 
+  plantTree(-8.8, 21.2, { height: 4.9, canopy: 2.9, seed: 81 });
+  plantTree(8.9, 20.5, { height: 4.5, canopy: 2.8, blossom: true, seed: 83 });
   plantTree(-28, 20, { height: 4.2, canopy: 2.5, seed: 11, scale: 1.12 });
   plantTree(-33.5, 12, { height: 3.8, canopy: 2.3, seed: 12 });
   plantTree(-32, 2, { height: 3.4, canopy: 2.0, seed: 13, scale: 0.96 });
@@ -894,9 +897,7 @@ export function createFrance(scene) {
   /* ---------------- people ---------------- */
   const odette = createNPC({
     id: 'odette', name: 'Odette', nameSub: '街头画家', marker: 'quest', questId: 'odette-brush',
-    scale: 0.98, style: 'dress', skin: '#f1c5a6', hairColor: '#6a4230', hairStyle: 'bob',
-    cloth: '#a98ab6', cloth2: '#f3e7d0', accent: '#d8726a', hat: 'beret', hatColor: '#c96d63',
-    accessory: 'palette', pos: [-9.5, 0, 13.5], yaw: 0.6,
+    pos: [-9.5, 0, 13.5], yaw: 0.6,
     dialogues: {
       new: [
         'Bonjour！你来得正好。塞纳河上的风把我的画笔吹跑啦，我正画到埃菲尔铁塔最漂亮的那一笔呢。',
@@ -914,13 +915,10 @@ export function createFrance(scene) {
       ],
     },
   });
-  odette.root.position.set(-9.5, 0, 13.5);
   root.add(odette.root);
 
   const pierre = createNPC({
     id: 'pierre', name: 'Pierre', nameSub: '咖啡馆老板', marker: 'quest', questId: 'pierre-star',
-    scale: 1.04, style: 'coat', skin: '#dda987', hairColor: '#4c3526', hairStyle: 'short',
-    cloth: '#7e6a54', cloth2: '#f2e7d2', accent: '#5f8f89', accessory: 'baguette',
     pos: [10.8, 0, 19.8], yaw: -0.7,
     dialogues: {
       new: [
@@ -939,13 +937,10 @@ export function createFrance(scene) {
       ],
     },
   });
-  pierre.root.position.set(10.8, 0, 19.8);
   root.add(pierre.root);
 
   const lucie = createNPC({
     id: 'lucie', name: 'Lucie', nameSub: '爱笑的小女孩', marker: 'hint',
-    scale: 0.82, style: 'dress', skin: '#f4cfae', hairColor: '#7a4a2e', hairStyle: 'ponytail',
-    cloth: '#e8a3ad', cloth2: '#f8ead5', accent: '#e9705b', accessory: 'scarf',
     pos: [-13.5, 0, 2.2], yaw: 0.8,
     dialogues: {
       hint: [
@@ -955,7 +950,6 @@ export function createFrance(scene) {
       ],
     },
   });
-  lucie.root.position.set(-13.5, 0, 2.2);
   root.add(lucie.root);
 
   const npcs = [odette, pierre, lucie];
@@ -1027,7 +1021,7 @@ export function createFrance(scene) {
     { type: 'box', x: 26, z: 40.4, w: 13, d: 0.5 },
     { type: 'box', x: 0, z: 47.2, w: 38.5, d: 9.4 },
     { type: 'box', x: 44.7, z: 7.4, w: 9.4, d: 28.2 },
-    { type: 'box', x: 0, z: -46.7, w: 28.5, d: 9.4 },
+    { type: 'box', x: -16.5, z: -44.2, w: 28.5, d: 9.4 },
   ];
 
   const facts = [

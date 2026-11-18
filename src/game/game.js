@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { prepareSky } from '../world/environment.js';
 import { Coco, PaperPlane } from '../world/character.js';
 import { Player, FollowCamera } from './player.js';
 import { createUSA } from '../world/cities/usa.js';
@@ -7,7 +8,6 @@ import { createJapan } from '../world/cities/japan.js';
 import { createHeartGate, BurstSystem } from '../world/collectibles.js';
 import { disposeObject } from '../core/utils.js';
 import { emptyProgress, loadProgress, saveProgress } from '../core/save.js';
-import titleArt from '../assets/title.jpg';
 
 const FACTORY = { usa: createUSA, france: createFrance, japan: createJapan };
 const CITY_NAMES = { usa: '纽约', france: '巴黎', japan: '东京' };
@@ -60,7 +60,7 @@ export class Game {
     this.bindDom();
     this.applySettings(this.progress?.settings || { sfx: true, music: false });
     this.setupTouch();
-    this.ui.setTitleArt(titleArt);
+    this.input.capturesKeys = () => this.mode === 'play' || this.mode === 'dialogue';
 
     this.lastTime = performance.now();
     this.frame = this.frame.bind(this);
@@ -75,7 +75,8 @@ export class Game {
     ui.onJournal = () => this.openJournal();
     ui.onJournalClose = () => {
       if (this.mode === 'journal') {
-        this.mode = 'play';
+        this.mode = this.journalReturnMode;
+        if (this.mode === 'pause') this.ui.openPause();
         this.audio.play('close');
       }
     };
@@ -133,7 +134,8 @@ export class Game {
     });
 
     window.addEventListener('keydown', (e) => {
-      if (e.code !== 'Tab') return;
+      if (e.code !== 'Tab' || !['play','journal'].includes(this.mode)) return;
+      if (e.repeat) { e.preventDefault(); return; }
       e.preventDefault();
       if (this.mode === 'play') this.openJournal();
       else if (this.mode === 'journal') this.ui.closeJournal();
@@ -143,9 +145,15 @@ export class Game {
   }
 
   setupTouch() {
-    const coarse = window.matchMedia?.('(pointer: coarse)').matches;
-    const touchy = coarse || (navigator.maxTouchPoints > 0 && window.innerWidth < 980);
-    if (touchy) this.ui.d.touchControls?.classList.remove('hidden');
+    const pointer = window.matchMedia('(pointer: coarse)');
+    const update = () => {
+      const touch = pointer.matches || (navigator.maxTouchPoints > 0 && window.innerWidth < 980);
+      document.body.classList.toggle('touch-input',touch);
+      this.ui.d.touchControls.classList.toggle('hidden',!touch);
+    };
+    update();
+    pointer.addEventListener('change',update);
+    window.addEventListener('resize',update);
   }
 
   applySettings(settings) {
@@ -159,21 +167,11 @@ export class Game {
   /* ------------------------------------------------------------------ */
   async boot() {
     this.mode = 'loading';
+    this.skyReady = prepareSky();
     this.ui.showLoading('正在系好旅行靴的鞋带…');
     this.ui.setLoading(18);
 
-    const art = new Image();
-    art.src = titleArt;
-    const loaded = new Promise((resolve) => {
-      art.onload = resolve;
-      art.onerror = resolve;
-    });
-
-    await delay(420);
-    this.ui.setLoading(52, '正在给热气球打气…');
-    await delay(420);
-    this.ui.setLoading(78, '正在把护照放进背包…');
-    await Promise.race([loaded, delay(900)]);
+    await this.ui.d.titleArt.decode().catch(() => {});
     this.ui.setLoading(100);
 
     const startBtn = document.getElementById('btn-start');
@@ -190,7 +188,6 @@ export class Game {
       }
     }
 
-    await delay(220);
     this.ui.hideLoading();
     this.ui.show('title');
     this.mode = 'title';
@@ -253,7 +250,9 @@ export class Game {
     await nextFrame();
     await nextFrame();
 
+    await this.skyReady;
     this.enterCity(id);
+    this.engine.render();
 
     this.ui.setLoading(94, '正在叫醒岛上的居民…');
     await delay(320);
@@ -290,6 +289,7 @@ export class Game {
     });
     city.group.add(this.gate.group);
 
+    this.engine.needsRender = true;
     this.restoreCityState();
 
     this.player.setCity({
@@ -311,7 +311,8 @@ export class Game {
     this.cameraRig.reset(city.spawnYaw - Math.PI);
     this.snapCamera();
 
-    this.engine.setBloom({ strength: 0.34, radius: 0.55, threshold: 0.9 });
+    this.engine.setBloom({ strength: 0.19, radius: 0.42, threshold: 1.02 });
+    this.engine.renderer.toneMappingExposure = city.theme.exposure;
     this.audio.city = city.id;
 
     if (this.progress.stamps[city.id]) city.setLit(true);
@@ -395,7 +396,7 @@ export class Game {
       ty + Math.sin(rig.pitch) * rig.dist + 0.4,
       p.z + Math.cos(rig.yaw) * cp * rig.dist,
     );
-    rig.camera.lookAt(rig.target);
+    rig.camera.lookAt(rig.target.clone().add(rig.offset));
   }
 
   countSparks() {
@@ -416,7 +417,7 @@ export class Game {
     this.gate?.setActive(active);
     if (announce && active && !prevGate) {
       this.audio.play('quest');
-      this.ui.questFlash('五颗星火，聚齐了！', `去${GATE_NAMES[this.city.id]}前的光之门，按下 E`, 3800);
+      this.ui.questFlash('五颗星火，聚齐了！', `去${GATE_NAMES[this.city.id]}前的光之门，和光之门互动`, 3800);
     }
     this.refreshObjective();
     this.save();
@@ -444,11 +445,12 @@ export class Game {
   }
 
   tick(dt) {
-    this.t += dt;
     this.ui.update(dt);
     this.handleHotkeys();
 
-    if (this.city) {
+    const playing = ['play','dialogue','ferry','cinema'].includes(this.mode);
+    if (this.city && playing) {
+      this.t += dt;
       this.city.update(dt, this.t, this.player.position);
       this.gate?.update(dt, this.t);
       this.bursts.update(dt);
@@ -462,7 +464,7 @@ export class Game {
         if (this.mode === 'play') this.updateCompass();
       } else if (this.mode === 'ferry') {
         this.updateFerry(dt);
-      } else if (['dialogue', 'journal', 'pause', 'help', 'cinema'].includes(this.mode)) {
+      } else if (this.mode === 'dialogue' || this.mode === 'cinema') {
         this.player.update(dt, this.input, this.cameraRig.yaw, { inputEnabled: false, allowJump: false });
         if (this.mode === 'dialogue') {
           if (this.input.consumeInteract() || this.input.wasPressed('Space')) this.ui.advanceDialogue();
@@ -471,11 +473,11 @@ export class Game {
 
       if (this.mode === 'cinema') this.updateCinema(dt);
 
-      this.plane.update(dt, this.player.position, this.player.yaw, this.player.idleTime);
+      this.plane.update(dt, this.player.position, this.player.yaw, this.player.idleTime, this.mode === 'dialogue');
       this.cameraRig.update(dt, this.player.position, this.mode === 'play' ? this.input : null);
     }
 
-    this.engine.render();
+    if (this.city && (playing || this.engine.needsRender)) this.engine.render();
     this.input.endFrame();
   }
 
@@ -742,6 +744,11 @@ export class Game {
     this.ui.hideCompass();
     this.promptKey = '';
     npc.setTalking(true);
+    const toResident = npc.root.position.clone().sub(this.player.position);
+    if (Math.hypot(toResident.x,toResident.z) > .05) this.player.yaw = Math.atan2(toResident.x,toResident.z);
+    this.coco.setTalking(true);
+    const head = npc.headGroup.getWorldPosition(new THREE.Vector3());
+    this.cameraRig.frameConversation(this.player.position,npc.root.position,head,this.city.group);
     this.audio.play('open');
 
     this.ui.openDialogue({
@@ -749,6 +756,8 @@ export class Game {
       lines,
       onDone: () => {
         npc.setTalking(false);
+        this.coco.setTalking(false);
+        this.cameraRig.clearCinematic();
         this.mode = 'play';
         after?.();
       },
@@ -825,6 +834,16 @@ export class Game {
         }
       }
       if (!target) {
+        const available = this.city.quests.find((q) => !this.progress.quests[q.id]);
+        if (available) {
+          const npc = this.npcById(available.npcId);
+          if (npc) {
+            target = npc.root.position;
+            label = `找 ${npc.def.name}`;
+          }
+        }
+      }
+      if (!target) {
         let best = null;
         let bestD = Infinity;
         const saved = new Set(this.progress.sparkIds[this.city.id] || []);
@@ -839,28 +858,24 @@ export class Game {
         }
       }
       if (!target) {
-        const available = this.city.quests.find((q) => !this.progress.quests[q.id]);
-        if (available) {
-          const npc = this.npcById(available.npcId);
-          if (npc) {
-            target = npc.root.position;
-            label = npc.def.name;
-          }
-        }
-      }
-      if (!target) {
         target = this.city.heart;
         label = GATE_NAMES[this.city.id];
       }
     }
 
+    // The ferry is the crossing between the two New York walk areas.
+    const stand = this.city.ferry?.crossingStand(p, target);
+    if (stand) {
+      target = stand.pos;
+      label = stand.label;
+    }
     const dx = target.x - p.x;
     const dz = target.z - p.z;
     const yaw = this.cameraRig.yaw;
     const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
     const rx = Math.cos(yaw), rz = -Math.sin(yaw);
     const angle = Math.atan2(dx * rx + dz * rz, dx * fx + dz * fz);
-    this.ui.setCompass(angle, label);
+    this.ui.setCompass(angle, label + ' · ' + Math.round(Math.hypot(dx,dz)) + ' m');
   }
 
   refreshObjective() {
@@ -875,7 +890,7 @@ export class Game {
       text = '这座城市已经重新亮起来了。听听风，看看灯，和朋友们说声再见。';
     } else if (this.sparkCount >= 5) {
       title = '点亮城市';
-      text = `星火已经聚齐。走到${GATE_NAMES[city.id]}前的光之门，按下 E。`;
+      text = `星火已经聚齐。到${GATE_NAMES[city.id]}前，和光之门互动。`;
     } else {
       const ready = city.quests.find((q) => this.progress.quests[q.id] === 'ready');
       const active = city.quests.find((q) => this.progress.quests[q.id] === 'active');
@@ -890,7 +905,7 @@ export class Game {
       } else if (available) {
         const npc = this.npcById(available.npcId);
         title = '听听岛上的故事';
-        text = `${npc?.def.name || '居民'}好像需要帮忙。头顶有金色感叹号的人都可以聊一聊。`;
+        text = `跟着指针去找 ${npc?.def.name || '居民'}，听听有什么可以帮忙。`;
       } else {
         title = '寻找星火';
         text = `还差 ${5 - this.sparkCount} 颗星火。试试跳上箱子、爬上台阶，去岛上每个角落看看。`;
@@ -936,11 +951,7 @@ export class Game {
     const arrival = city.facts.find((f) => f.key.endsWith('-arrival'));
     const isNew = arrival ? this.unlockFact(city, arrival, false) : false;
 
-    setTimeout(() => {
-      if (!this.city || this.city.id !== city.id) return;
-      this.ui.questFlash(city.locationCn, city.intro, 4600);
-      this.audio.play('open');
-    }, 180);
+    this.audio.play('open');
 
     if (isNew) {
       setTimeout(() => {
@@ -952,7 +963,7 @@ export class Game {
           teal: true,
           duration: 3800,
         });
-      }, 2700);
+      }, 700);
     }
   }
 
@@ -1128,7 +1139,7 @@ export class Game {
     this.cameraRig.clearCinematic();
     this.cameraRig.yaw = this.player.yaw - Math.PI;
     this.cameraRig.ready = false;
-    this.engine.setBloom({ strength: 0.34, radius: 0.55, threshold: 0.9 });
+    this.engine.setBloom({ strength: 0.19, radius: 0.42, threshold: 1.02 });
     this.refreshObjective();
     this.ui.toast({
       icon: '✦',
@@ -1144,7 +1155,8 @@ export class Game {
   /* ------------------------------------------------------------------ */
   openJournal(fromPause = false) {
     if (!this.city) return;
-    if (!fromPause && this.mode !== 'play') return;
+    if (this.mode !== (fromPause ? 'pause' : 'play')) return;
+    this.journalReturnMode = this.mode;
     this.mode = 'journal';
     this.ui.hidePrompt();
     this.ui.hideCompass();

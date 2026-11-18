@@ -1,9 +1,13 @@
 import * as THREE from 'three';
+import { drawPostmark, cityInk } from './postmarks.js';
+import { batchRigidProp } from '../core/static-meshes.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import {
-  TAU, canvas2d, canvasTexture, barkTexture, signTexture, canvasPlane,
-  rand, randInt, mulberry32, clamp, damp, blobShadow, sparkleTexture, dotTexture,
+  TAU, canvas2d, canvasTexture, barkTexture,
+  rand, mulberry32, clamp, damp, blobShadow, dotTexture,
 } from '../core/utils.js';
+
+export { createTree, createFlowerBed, createBush, createHedge } from './garden.js';
 
 const S = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.82, metalness: 0, ...o });
 const iron = new THREE.MeshStandardMaterial({ color: '#33302c', roughness: 0.55, metalness: 0.5 });
@@ -33,65 +37,6 @@ function woodTexture(seed = 4, base = '#a3764d') {
   return canvasTexture(c, { repeat: [2, 2] });
 }
 
-export function createTree({
-  height = 2.2, canopy = 1.5, colors = ['#7f9f57', '#8fae63', '#6f9150'],
-  trunkColor = '#7b5a3f', blossom = false, seed = 1,
-} = {}) {
-  const r = mulberry32(seed);
-  const group = new THREE.Group();
-  const trunkMat = new THREE.MeshStandardMaterial({ color: trunkColor, map: barkTexture(seed), roughness: 1 });
-  const trunkScale = blossom ? 0.62 : 1;
-  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.12 * canopy * 0.55 * trunkScale, 0.24 * canopy * 0.55 * trunkScale, height, 9), trunkMat);
-  trunk.position.y = height / 2;
-  trunk.castShadow = trunk.receiveShadow = true;
-  group.add(trunk);
-
-  const branchCount = blossom ? 4 : 3;
-  for (let i = 0; i < branchCount; i++) {
-    const branch = new THREE.Mesh(new THREE.CylinderGeometry(
-      (blossom ? 0.018 : 0.035) * canopy,
-      (blossom ? 0.03 : 0.07) * canopy,
-      height * (blossom ? 0.4 : 0.55), 6,
-    ), trunkMat);
-    const a = (i / branchCount) * TAU + r();
-    branch.position.set(Math.cos(a) * 0.16 * canopy, height * (blossom ? 0.88 : 0.78), Math.sin(a) * 0.16 * canopy);
-    branch.rotation.set(Math.cos(a) * (blossom ? 0.38 : 0.55), 0, -Math.sin(a) * (blossom ? 0.38 : 0.55));
-    branch.castShadow = true;
-    group.add(branch);
-  }
-
-  const leafMats = colors.map((c) => new THREE.MeshStandardMaterial({
-    color: c, roughness: 1, flatShading: !blossom,
-    ...(blossom ? { emissive: c, emissiveIntensity: 0.05 } : {}),
-  }));
-  const blobs = blossom ? 36 + Math.floor(r() * 9) : 5 + Math.floor(r() * 3);
-  for (let i = 0; i < blobs; i++) {
-    const a = r() * TAU;
-    const rr = r() * canopy * (blossom ? 0.98 : 0.62);
-    const blob = new THREE.Mesh(new THREE.IcosahedronGeometry(canopy * (blossom ? 0.1 + r() * 0.1 : 0.46 + r() * 0.26), blossom ? 2 : 1), leafMats[i % leafMats.length]);
-    blob.position.set(Math.cos(a) * rr, height + canopy * (blossom ? 0.1 + r() * 0.58 : 0.1 + r() * 0.32), Math.sin(a) * rr);
-    blob.rotation.set(r() * TAU, r() * TAU, r() * TAU);
-    blob.scale.y = (blossom ? 0.76 : 0.82) + r() * 0.18;
-    blob.castShadow = true;
-    blob.receiveShadow = true;
-    group.add(blob);
-  }
-  if (blossom) {
-    const petalMat = new THREE.MeshStandardMaterial({ color: '#fff1f5', emissive: '#ffdfe8', emissiveIntensity: 0.08, roughness: 0.9 });
-    for (let i = 0; i < 70; i++) {
-      const a = r() * TAU;
-      const rr = canopy * (0.3 + r() * 0.7);
-      const dot = new THREE.Mesh(new THREE.SphereGeometry(0.012 + r() * 0.013, 5, 4), petalMat);
-      dot.position.set(Math.cos(a) * rr, height + canopy * (0.1 + r() * 0.6), Math.sin(a) * rr);
-      group.add(dot);
-    }
-  }
-  const shadow = blobShadow(canopy * 0.9, 0.16);
-  shadow.position.y = 0.02;
-  group.add(shadow);
-  return group;
-}
-
 export function createPine({ height = 3, radius = 1.1 } = {}) {
   const group = new THREE.Group();
   const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.2, height * 0.6, 8), S('#6d5138', { map: barkTexture(3) }));
@@ -106,71 +51,7 @@ export function createPine({ height = 3, radius = 1.1 } = {}) {
     cone.castShadow = true;
     group.add(cone);
   }
-  return group;
-}
-
-export function createBush(scale = 1, color = '#7d9b58') {
-  const group = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({ color, roughness: 1, flatShading: true });
-  for (let i = 0; i < 4; i++) {
-    const b = new THREE.Mesh(new THREE.IcosahedronGeometry(0.35 * scale * (0.7 + Math.random() * 0.5), 1), mat);
-    b.position.set(rand(-0.35, 0.35) * scale, 0.25 * scale, rand(-0.3, 0.3) * scale);
-    b.castShadow = true;
-    group.add(b);
-  }
-  return group;
-}
-
-export function createHedge(length = 4, h = 0.8) {
-  const group = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({ color: '#6f9152', roughness: 1, flatShading: true });
-  const base = new THREE.Mesh(new RoundedBoxGeometry(length, h, 0.8, 3, 0.3), mat);
-  base.position.y = h / 2;
-  base.castShadow = true;
-  base.receiveShadow = true;
-  group.add(base);
-  for (let i = 0; i < length * 3; i++) {
-    const b = new THREE.Mesh(new THREE.IcosahedronGeometry(0.22 + Math.random() * 0.16, 0), mat);
-    b.position.set(rand(-length / 2, length / 2), h * 0.85 + Math.random() * 0.18, rand(-0.3, 0.3));
-    group.add(b);
-  }
-  return group;
-}
-
-export function createFlowerBed(radius = 2, colors = ['#f0b64b', '#e9705b', '#f7d6df', '#8fa9d8', '#ffffff']) {
-  const group = new THREE.Group();
-  const soil = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius + 0.08, 0.22, 24), S('#6b5138'));
-  soil.position.y = 0.11;
-  soil.receiveShadow = true;
-  group.add(soil);
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(radius + 0.05, 0.12, 6, 28), stone);
-  rim.rotation.x = Math.PI / 2;
-  rim.position.y = 0.22;
-  group.add(rim);
-
-  const n = Math.floor(radius * radius * 18);
-  const stemGeo = new THREE.CylinderGeometry(0.012, 0.016, 0.35, 4);
-  const headGeo = new THREE.SphereGeometry(0.065, 6, 5);
-  const stems = new THREE.InstancedMesh(stemGeo, S('#5f854e'), n);
-  const heads = new THREE.InstancedMesh(headGeo, new THREE.MeshStandardMaterial({ roughness: 0.8 }), n);
-  const m = new THREE.Matrix4();
-  const col = new THREE.Color();
-  for (let i = 0; i < n; i++) {
-    const a = Math.random() * TAU;
-    const rr = Math.sqrt(Math.random()) * (radius - 0.25);
-    const x = Math.cos(a) * rr, z = Math.sin(a) * rr;
-    const hh = 0.22 + Math.random() * 0.2;
-    m.makeTranslation(x, hh / 2 + 0.2, z);
-    stems.setMatrixAt(i, m);
-    m.makeTranslation(x, hh + 0.28, z);
-    heads.setMatrixAt(i, m);
-    col.set(colors[i % colors.length]);
-    heads.setColorAt(i, col);
-  }
-  stems.castShadow = true;
-  heads.castShadow = false;
-  group.add(stems, heads);
-  return group;
+  return batchRigidProp(group);
 }
 
 export function createLamp(style = 'ny', { lit = true } = {}) {
@@ -201,9 +82,6 @@ export function createLamp(style = 'ny', { lit = true } = {}) {
     const cap = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), stone);
     cap.position.y = 2.08;
     group.add(cap);
-    const light = new THREE.PointLight(0xffb55e, lit ? 5 : 0, 6, 2);
-    light.position.y = 1.6;
-    group.add(light);
   } else {
     const base = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 0.3, 10), iron);
     base.position.y = 0.15;
@@ -236,9 +114,6 @@ export function createLamp(style = 'ny', { lit = true } = {}) {
       const tip = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 5), gold);
       tip.position.set(0.37, 3.68, 0);
       group.add(tip);
-      const light = new THREE.PointLight(0xffc078, lit ? 6 : 0, 7, 2);
-      light.position.set(0.37, 3.3, 0);
-      group.add(light);
     } else {
       const cross = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.06, 0.06), iron);
       cross.position.y = 3.45;
@@ -256,15 +131,10 @@ export function createLamp(style = 'ny', { lit = true } = {}) {
         cap.rotation.y = Math.PI / 4;
         group.add(cap);
       }
-      const light = new THREE.PointLight(0xffc078, lit ? 7 : 0, 8, 2);
-      light.position.y = 3.1;
-      group.add(light);
     }
-    const postLight = new THREE.PointLight(0xffc078, 0, 5, 2);
-    postLight.position.y = 3.2;
   }
   group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-  return group;
+  return batchRigidProp(group);
 }
 
 export function createBench(color = '#9a6c46') {
@@ -296,7 +166,7 @@ export function createBench(color = '#9a6c46') {
     group.add(armrest);
   }
   group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-  return group;
+  return batchRigidProp(group);
 }
 
 export function createFlagPole(flagTex, { height = 6, scale = 1.5 } = {}) {
@@ -543,7 +413,7 @@ export function createCafeSet({ umbrellaColor = '#e9705b' } = {}) {
   tip.position.y = 2.75;
   group.add(tip);
   group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-  return group;
+  return batchRigidProp(group);
 }
 
 export function createVendingMachine() {
@@ -675,37 +545,44 @@ export function createBicycle(color = '#5f8f89') {
     group.add(f);
   }
   group.scale.setScalar(1.15);
-  return group;
+  return batchRigidProp(group);
 }
 
-export function createSign(text, sub, { width = 2.2, height = 0.9, postH = 1.8, style = 'post' } = {}) {
+export function createSign(text, sub, { width = 2.2, height = .9, postH = 1.8, style = 'post', city = 'usa' } = {}) {
   const group = new THREE.Group();
-  const tex = signTexture(text, { sub, size: text.length > 8 ? 56 : 74 });
-  const board = new THREE.Mesh(new THREE.PlaneGeometry(width, height), new THREE.MeshStandardMaterial({
-    map: tex, roughness: 0.9,
-  }));
-  board.position.y = postH;
-  board.castShadow = true;
-  group.add(board);
-  if (style === 'post') {
-    const back = new THREE.Mesh(new THREE.PlaneGeometry(width, height), S('#9c7c56', { roughness: 0.92 }));
-    back.position.set(0, postH, -0.02);
-    back.rotation.y = Math.PI;
-    group.add(back);
-    for (const s of [-1, 1]) {
-      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, postH, 6), S('#8a6748'));
-      post.position.set(s * width * 0.34, postH / 2 - 0.1, -0.03);
-      group.add(post);
-    }
-  } else {
-    const boardBack = new THREE.Mesh(new RoundedBoxGeometry(width + 0.12, height + 0.1, 0.08, 2, 0.02), S('#8a6748'));
-    boardBack.position.set(0, postH + 0.05, -0.06);
-    group.add(boardBack);
-    const top = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.12, 4), S('#8a6748'));
-    top.position.set(0, postH + height / 2 + 0.15, 0);
-    group.add(top);
+  const { c, ctx } = canvas2d(1024, Math.round(1024 * height / width));
+  const w=c.width, h=c.height, cream='#f7edcf', accent='#d8bb7f';
+  ctx.fillStyle=cityInk[city]; ctx.fillRect(0,0,w,h);
+  ctx.strokeStyle=accent; ctx.lineWidth=4;
+  ctx.beginPath(); ctx.roundRect(12,12,w-24,h-24,17); ctx.stroke();
+  drawPostmark(ctx,city,h*.13,h*.23,h*.54,cream);
+  const left=h*.80, right=w-48, center=(left+right)/2;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  let size=Math.floor(h*.36);
+  const font = () => `bold ${size}px Georgia,"Songti SC",serif`;
+  ctx.font=font();
+  while (ctx.measureText(text).width > right-left && size>12) { size--; ctx.font=font(); }
+  ctx.fillStyle=cream; ctx.fillText(text,center,h*.43);
+  ctx.font=`500 ${Math.round(h*.123)}px "PingFang SC",sans-serif`;
+  ctx.fillText(sub,center,h*.72,right-left);
+  ctx.lineWidth=2; ctx.strokeStyle=accent; ctx.beginPath();
+  ctx.moveTo(center-(right-left)*.22,h*.60); ctx.lineTo(center+(right-left)*.22,h*.60); ctx.stroke();
+  for (const x of [27,w-27]) for (const y of [27,h-27]) {
+    ctx.fillStyle=accent; ctx.beginPath(); ctx.arc(x,y,5,0,TAU); ctx.fill();
   }
-  return group;
+  const plate = new THREE.Mesh(new RoundedBoxGeometry(width+.045,height+.045,.10,2,.037), S('#384a40',{metalness:.35,roughness:.55}));
+  plate.position.y=postH; plate.castShadow=true; group.add(plate);
+  const face=new THREE.Mesh(new THREE.PlaneGeometry(width,height),S('#ffffff',{map:canvasTexture(c),roughness:.63}));
+  face.position.set(0,postH,.056); group.add(face);
+  const postMat=S(cityInk[city],{roughness:.64,metalness:.2});
+  if (style==='post') for (const side of [-1,1]) {
+    const post=new THREE.Mesh(new THREE.CylinderGeometry(.046,.066,postH,10),postMat);
+    post.position.set(side*width*.33,postH/2,-.083);
+    post.castShadow=true; group.add(post);
+    const shoe=new THREE.Mesh(new THREE.CylinderGeometry(.073,.11,.14,10),stone);
+    shoe.position.set(post.position.x,.07,-.083); group.add(shoe);
+  }
+  return batchRigidProp(group);
 }
 
 export function createStairs({ steps = 6, width = 3.2, rise = 0.18, run = 0.38, color = '#c6b79d' } = {}) {
@@ -782,7 +659,7 @@ function buildHorse(saddleColor) {
     group.add(eye);
   }
   group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-  return group;
+  return batchRigidProp(group);
 }
 
 export function createCarousel() {
@@ -976,7 +853,7 @@ export function createTaxi() {
   const shadow = blobShadow(1.8, 0.28);
   shadow.position.y = 0.02;
   group.add(shadow);
-  return group;
+  return batchRigidProp(group);
 }
 
 /* ------------------------------------------------------------------ */
@@ -1101,5 +978,5 @@ export function createSuspensionBridge(scale = 1) {
     }
   }
   group.scale.setScalar(scale);
-  return group;
+  return batchRigidProp(group);
 }

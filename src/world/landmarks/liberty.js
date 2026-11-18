@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { batchRigidProp } from '../../core/static-meshes.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import {
   TAU, copperTexture, canvas2d, canvasTexture, signTexture, addMesh,
@@ -45,7 +46,7 @@ export function createLiberty() {
   const group = new THREE.Group();
   const copper = copperMat();
   const flameMat = new THREE.MeshStandardMaterial({
-    color: '#ffe9b0', emissive: '#ffb648', emissiveIntensity: 0.1, roughness: 0.4,
+    color: '#eab051', metalness: .36, emissive: '#ffb648', emissiveIntensity: 0.1, roughness: 0.4,
     transparent: true, opacity: 0.95,
   });
   const outerFlameMat = new THREE.MeshBasicMaterial({
@@ -190,16 +191,19 @@ export function createLiberty() {
     [1.55, 3.0], [1.5, 4.1], [1.42, 5.1], [1.28, 5.9], [1.02, 6.55],
     [0.66, 6.9], [0.42, 7.0],
   ].map(([x, y]) => new THREE.Vector2(x, y));
-  const robeGeo = new THREE.LatheGeometry(profile, 40);
+  const sections = [];
+  for (let i=0; i<profile.length-1; i++) {
+    for (let j=0; j<4; j++) sections.push(profile[i].clone().lerp(profile[i+1],j/4));
+  }
+  sections.push(profile[profile.length-1]);
+  const robeGeo = new THREE.LatheGeometry(sections,80);
   const rp = robeGeo.attributes.position;
-  for (let i = 0; i < rp.count; i++) {
-    const x = rp.getX(i), y = rp.getY(i), z = rp.getZ(i);
-    const a = Math.atan2(z, x);
-    const fade = 1 - Math.min(1, y / 6.2) * 0.55;
-    const fold = 1 + Math.sin(a * 11 + 0.4) * 0.038 * fade + Math.sin(a * 5 + 1.4) * 0.022 * fade;
-    rp.setX(i, x * fold);
-    rp.setZ(i, z * fold);
-    if (y < 0.3) rp.setY(i, y + Math.sin(a * 7) * 0.035);
+  for (let i=0; i<rp.count; i++) {
+    const x=rp.getX(i), y=rp.getY(i), z=rp.getZ(i), a=Math.atan2(z,x);
+    const t=y/7, front=Math.max(0,Math.sin(a));
+    const fold = 1 + .066*Math.cos(a*11 + 2*t + .6*Math.sin(y*.8))*(1-.45*t)
+      + .045*Math.sin(a*5-t*3) + .044*Math.sin(y*4.9+a*3.3)*front*t;
+    rp.setXYZ(i,x*fold-.18*t*t,y+(y<.3 ? .044*Math.sin(a*7) : 0),z*fold*(1-.14*t));
   }
   robeGeo.computeVertexNormals();
   const robe = new THREE.Mesh(robeGeo, copper);
@@ -221,26 +225,28 @@ export function createLiberty() {
     statue.add(foot);
   }
 
-  // sash across body
-  const sash = new THREE.Mesh(new THREE.TorusGeometry(1.52, 0.13, 6, 30), copper);
-  sash.rotation.x = Math.PI / 2 + 0.06;
-  sash.rotation.z = 0.05;
-  sash.position.y = 4.15;
-  statue.add(sash);
-  const drape = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.52, 1.9, 12, 1, true), copper);
-  drape.position.set(-1.35, 3.1, 0.55);
-  drape.rotation.z = 0.25;
-  statue.add(drape);
-
-  // chest drapery / folds
-  for (let i = 0; i < 4; i++) {
-    const strip = new THREE.Mesh(new THREE.CapsuleGeometry(0.07, 2.2, 4, 6), copper);
-    strip.position.set(-0.7 + i * 0.42, 4.6 - i * 0.15, 1.28 - i * 0.03);
-    strip.rotation.z = -0.12 + i * 0.08;
-    strip.rotation.x = 0.15;
-    statue.add(strip);
+  // A folded mantle runs diagonally from the lifted shoulder around the hip.
+  const cloth = [], uv = [], indices = [];
+  const rows=8, steps=64;
+  for (let j=0; j<=rows; j++) for (let i=0; i<=steps; i++) {
+    const a=i/steps*TAU, v=j/rows;
+    const y=4.88-.98*Math.cos(a)-.72*Math.sin(a)+v*(.76+.1*Math.cos(a));
+    const next=profile.findIndex(point=>point.y>=y);
+    const low=profile[next-1], high=profile[next];
+    const radius=THREE.MathUtils.lerp(low.x,high.x,(y-low.y)/(high.y-low.y))
+      +.10+.12*Math.pow(Math.cos(v*Math.PI*2),2);
+    cloth.push(Math.cos(a)*radius-.1,y,Math.sin(a)*radius*(1-.14*y/7));
+    uv.push(i/steps,v);
+    if (j<rows && i<steps) {
+      const n=j*(steps+1)+i;
+      indices.push(n,n+steps+1,n+1, n+1,n+steps+1,n+steps+2);
+    }
   }
-
+  const mantle=new THREE.BufferGeometry();
+  mantle.setAttribute('position',new THREE.Float32BufferAttribute(cloth,3));
+  mantle.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+  mantle.setIndex(indices); mantle.computeVertexNormals();
+  statue.add(new THREE.Mesh(mantle,copper));
   // neck + head
   const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.38, 0.35, 10), copper);
   neck.position.y = 7.05;
@@ -304,8 +310,8 @@ export function createLiberty() {
 
   // right arm raised with torch
   const shoulderR = new THREE.Vector3(-0.92, 6.05, 0.05);
-  const elbowR = new THREE.Vector3(-1.42, 7.35, 0.16);
-  const wristR = new THREE.Vector3(-1.66, 8.42, 0.22);
+  const elbowR = new THREE.Vector3(-1.42, 7.55, 0.16);
+  const wristR = new THREE.Vector3(-1.66, 8.93, 0.22);
   statue.add(cylinderBetween(shoulderR, elbowR, 0.34, 0.27, copper));
   statue.add(cylinderBetween(elbowR, wristR, 0.26, 0.2, copper));
   const shoulderDrape = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.35, 8, 1, true), copper);
@@ -330,7 +336,16 @@ export function createLiberty() {
   cup.position.y = 0.58;
   cup.castShadow = true;
   torch.add(cup);
-  const flame = new THREE.Mesh(new THREE.SphereGeometry(0.36, 12, 10), flameMat);
+  const flameGeo = new THREE.LatheGeometry([[.05,-.29],[.26,-.2],[.33,-.08],[.32,.02],[.23,.13],[.12,.25],[.05,.37],[.002,.49]].map(([x,y]) => new THREE.Vector2(x,y)),32);
+  const flamePos = flameGeo.attributes.position;
+  for (let i=0; i<flamePos.count; i++) {
+    const y=flamePos.getY(i), t=(y+.29)/.78;
+    const x=flamePos.getX(i),z=flamePos.getZ(i);
+    const flute = 1+.13*Math.sin(Math.atan2(z,x)*5-t*5);
+    flamePos.setXYZ(i,x*flute+.19*t*t-.075*Math.sin(t*Math.PI),y,z*flute*.88);
+  }
+  flameGeo.computeVertexNormals();
+  const flame = new THREE.Mesh(flameGeo, flameMat);
   flame.scale.set(0.9, 1.9, 0.9);
   flame.position.y = 1.22;
   flame.castShadow = false;
@@ -434,6 +449,8 @@ export function createLiberty() {
     head.rotation.y = Math.sin(t * 0.12) * 0.02;
   }
 
+  batchRigidProp(statue, [torch, head]);
+  batchRigidProp(head);
   return {
     group,
     update,

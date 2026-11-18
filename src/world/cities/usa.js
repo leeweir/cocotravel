@@ -494,6 +494,7 @@ export function createUSA(scene) {
 
   /* ---------------- greenery ---------------- */
   const parkTreeSpecs = [
+    [-7.8, 21.4, 1.12, 4.7, 3.0], [9.4, 18.8, 1.15, 5.0, 3.2],
     [-25, 12, 1.35, 4.6, 2.9], [-35, 10, 1.2, 4.1, 2.5], [-39, -6, 1.3, 4.4, 2.7],
     [-33, -24, 1.15, 3.8, 2.3], [-31, -39, 1.05, 3.4, 2.0], [-6, -22, 1.05, 3.5, 2.1],
     [9, -19, 1.0, 3.3, 2.0], [20, 18, 1.1, 3.6, 2.2], [30, 5, 1.0, 3.3, 2.0],
@@ -560,7 +561,7 @@ export function createUSA(scene) {
   const welcome = createSign('BATTERY PARK', '炮台公园 · 纽约港', {
     width: 3.4, height: 1.15, postH: 2.05,
   });
-  welcome.position.set(4.6, 0, 28.3);
+  welcome.position.set(4.4, 0, 26.3);
   welcome.rotation.y = 0.18;
   root.add(welcome);
   const wayfinding = createSign('LIBERTY FERRY →', '自由岛渡轮 · 码头', {
@@ -638,8 +639,6 @@ export function createUSA(scene) {
   /* ---------------- people ---------------- */
   const rosa = createNPC({
     id: 'rosa', name: 'Rosa', nameSub: '贝果阿姨', marker: 'quest', questId: 'rosa-wheel',
-    scale: 1.0, style: 'dress', skin: '#eec1a3', hairColor: '#5a3d2b', hairStyle: 'bun',
-    cloth: '#8b9f88', cloth2: '#f4e9d2', accent: '#cf6e5e', accessory: 'apron',
     pos: [17.4, 0, 8.4], yaw: 0.55,
     dialogues: {
       new: [
@@ -658,14 +657,11 @@ export function createUSA(scene) {
       ],
     },
   });
-  rosa.root.position.set(17.4, 0, 8.4);
   root.add(rosa.root);
 
   const sam = createNPC({
     id: 'sam', name: 'Sam', nameSub: '公园管理员', marker: 'quest', questId: 'sam-whistle',
-    scale: 1.05, style: 'coat', skin: '#d6a07c', hairColor: '#483428', hairStyle: 'short',
-    cloth: '#687f5e', cloth2: '#e5d7b6', pants: '#4d4639', hat: 'ranger', hatColor: '#7a6244',
-    accessory: 'camera', pos: [28.5, 0, -22], yaw: 1.9,
+    pos: [28.5, 0, -22], yaw: 1.9,
     dialogues: {
       new: [
         '你好呀，小旅行家。我是 Sam，负责照看这座炮台公园。',
@@ -683,13 +679,10 @@ export function createUSA(scene) {
       ],
     },
   });
-  sam.root.position.set(28.5, 0, -22);
   root.add(sam.root);
 
   const theo = createNPC({
     id: 'theo', name: 'Theo', nameSub: '爵士吉他手', marker: 'hint',
-    scale: 1.02, style: 'coat', skin: '#9c6a4d', hairColor: '#2e241f', hairStyle: 'messy',
-    cloth: '#5b6e7a', cloth2: '#e0cdaa', accent: '#d3a45d', accessory: 'guitar',
     pos: [-13, 0, 12], yaw: 1.1,
     dialogues: {
       hint: [
@@ -699,7 +692,6 @@ export function createUSA(scene) {
       ],
     },
   });
-  theo.root.position.set(-13, 0, 12);
   root.add(theo.root);
 
   const npcs = [rosa, sam, theo];

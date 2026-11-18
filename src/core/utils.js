@@ -63,35 +63,29 @@ export function grassTexture(seed = 1, base = [132, 165, 93], light = [158, 188,
   const { c, ctx } = canvas2d(512, 512);
   ctx.fillStyle = `rgb(${base[0]},${base[1]},${base[2]})`;
   ctx.fillRect(0, 0, 512, 512);
-  // soft patches
-  for (let i = 0; i < 60; i++) {
-    const x = r() * 512, y = r() * 512, rad = 20 + r() * 80;
-    const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
-    const a = r() * 0.12;
-    g.addColorStop(0, `rgba(${light[0]},${light[1]},${light[2]},${a})`);
-    g.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = g;
-    ctx.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+  // Overlapping washes keep large lawns soft; small paired blades read up close.
+  const tint = (rgb, alpha) => `rgba(${rgb.join(',')},${alpha})`;
+  const meadow = [Math.round(base[0]*.86), Math.round(base[1]*1.03), Math.round(base[2]*1.13)];
+  ctx.fillStyle = tint(meadow, 1);
+  ctx.fillRect(0,0,512,512);
+  for (let i = 0; i < 75; i++) {
+    const x = r()*512, y = r()*512, radius = 12 + r()*65;
+    const ink = i % 3 ? light : [64,107,89];
+    // Draw edge patches wrapped, so the wash repeats without visible seams.
+    for (const dx of [-512,0,512]) for (const dy of [-512,0,512]) {
+      const cx = x+dx, cy = y+dy;
+      if (cx+radius < 0 || cx-radius > 512 || cy+radius < 0 || cy-radius > 512) continue;
+      const wash = ctx.createRadialGradient(cx,cy,0,cx,cy,radius);
+      wash.addColorStop(0,tint(ink,.25)); wash.addColorStop(1,tint(ink,0));
+      ctx.fillStyle = wash;
+      ctx.fillRect(cx-radius,cy-radius,radius*2,radius*2);
+    }
   }
-  // blades
-  for (let i = 0; i < 4200; i++) {
-    const x = r() * 512, y = r() * 512;
-    const l = 2 + r() * 6;
-    const hue = 78 + r() * 40;
-    ctx.strokeStyle = `hsla(${hue}, ${28 + r() * 22}%, ${30 + r() * 22}%, ${0.25 + r() * 0.5})`;
-    ctx.lineWidth = 1 + r();
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(x + (r() - 0.5) * 3, y - l);
-    ctx.stroke();
-  }
-  // tiny flowers
-  for (let i = 0; i < 26; i++) {
-    const x = r() * 512, y = r() * 512;
-    ctx.fillStyle = r() > 0.5 ? 'rgba(255,248,224,.7)' : 'rgba(246,201,120,.55)';
-    ctx.beginPath();
-    ctx.arc(x, y, 1.2 + r() * 1.3, 0, TAU);
-    ctx.fill();
+  for (let i = 0; i < 1750; i++) {
+    const x = r()*512, y = r()*512, length = 2+r()*4;
+    ctx.strokeStyle = tint(i%3 ? [77,118,87] : [208,211,148], .20+r()*.17);
+    ctx.lineWidth = .8 + r()*.65;
+    ctx.beginPath(); ctx.moveTo(x-1,y-length*.6); ctx.lineTo(x,y); ctx.quadraticCurveTo(x+.6,y-length*.6,x+2,y-length); ctx.stroke();
   }
   return canvasTexture(c, { repeat: [12, 12] });
 }
@@ -99,41 +93,30 @@ export function grassTexture(seed = 1, base = [132, 165, 93], light = [158, 188,
 export function pavingTexture(kind = 'slab', seed = 2) {
   const r = mulberry32(seed);
   const { c, ctx } = canvas2d(512, 512);
-  if (kind === 'cobble') {
-    ctx.fillStyle = '#b6a995';
-    ctx.fillRect(0, 0, 512, 512);
-    const cols = 8, rows = 12;
-    const cw = 512 / cols, ch = 512 / rows;
-    for (let y = -1; y <= rows; y++) {
-      for (let x = -1; x <= cols; x++) {
-        const ox = (y % 2 === 0 ? 0 : cw / 2) + x * cw;
-        const oy = y * ch;
-        const w = cw - 7 - r() * 4, h = ch - 7 - r() * 3;
-        const l = 58 + r() * 15;
-        ctx.fillStyle = `hsl(${32 + r() * 12}, ${9 + r() * 8}%, ${l}%)`;
-        roundRect(ctx, ox + 4 + r() * 2, oy + 4, w, h, 9);
-        ctx.fill();
-        ctx.fillStyle = 'rgba(255,255,255,.09)';
-        roundRect(ctx, ox + 6, oy + 5, w - 6, h * 0.32, 7);
-        ctx.fill();
-      }
-    }
-  } else if (kind === 'slab') {
-    ctx.fillStyle = '#a89f92';
-    ctx.fillRect(0, 0, 512, 512);
-    const n = 4, s = 512 / n;
-    for (let y = 0; y < n; y++) {
-      for (let x = 0; x < n; x++) {
-        const l = 66 + r() * 12;
-        ctx.fillStyle = `hsl(${34 + r() * 12}, ${6 + r() * 6}%, ${l}%)`;
-        ctx.fillRect(x * s + 3, y * s + 3, s - 6, s - 6);
-        ctx.fillStyle = 'rgba(255,255,255,.08)';
-        ctx.fillRect(x * s + 4, y * s + 4, s - 8, s * 0.16);
-        for (let i = 0; i < 40; i++) {
-          ctx.fillStyle = `rgba(60,50,40,${r() * 0.08})`;
-          ctx.fillRect(x * s + 5 + r() * (s - 12), y * s + 5 + r() * (s - 12), 1.6, 1.6);
+  if (kind === 'cobble' || kind === 'slab') {
+    const cobbles = kind === 'cobble';
+    const cols = cobbles ? 8 : 3, rows = cobbles ? 12 : 5;
+    const cw = 512 / cols, ch = 512 / rows, joint = cobbles ? 2.4 : 2.1;
+    ctx.fillStyle = cobbles ? '#998d80' : '#ada797';
+    ctx.fillRect(0,0,512,512);
+    for (let j = 0; j < rows; j++) {
+      for (let i = 0; i < cols; i++) {
+        const x = (i + (j % 2) * .5) * cw, y = j * ch;
+        const shade = cobbles ? 63 + r()*7 : 72 + r()*5;
+        const hue = cobbles ? 26 + r()*9 : 36 + r()*8;
+        for (const dx of [0,-512]) {
+          ctx.fillStyle = `hsl(${hue}, ${cobbles ? 13 : 15}%, ${shade}%)`;
+          roundRect(ctx,x+dx+joint/2,y+joint/2,cw-joint,ch-joint,cobbles ? 7 : 3);
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(255,249,229,.32)';
+          ctx.lineWidth = 1.4;
+          ctx.beginPath(); ctx.moveTo(x+dx+joint+3,y+joint); ctx.lineTo(x+dx+cw-joint-3,y+joint); ctx.stroke();
         }
       }
+    }
+    for (let i = 0; i < 13500; i++) {
+      ctx.fillStyle = i%2 ? 'rgba(82,67,54,.095)' : 'rgba(255,251,227,.22)';
+      ctx.fillRect(r()*512,r()*512,.5+r()*1.6,.4+r());
     }
   } else if (kind === 'stone') {
     ctx.fillStyle = '#c8bfae';
@@ -198,9 +181,9 @@ export function pavingTexture(kind = 'slab', seed = 2) {
       ctx.stroke();
     }
   }
-  return canvasTexture(c, {
-    repeat: kind === 'gravel' ? [7, 7] : kind === 'asphalt' ? [5, 5] : [6, 6],
-  });
+  const texture = canvasTexture(c, {repeat: [6,6]});
+  texture.userData.tileSize = kind === 'asphalt' ? 8 : kind === 'cobble' ? 2.8 : 3.6;
+  return texture;
 }
 
 export function sandTexture(seed = 5) {
@@ -593,19 +576,20 @@ export function blobShadow(radius = 1, opacity = 0.22) {
 }
 
 export function disposeObject(root) {
+  const geometries = new Set(), materials = new Set(), textures = new Set();
   root.traverse((o) => {
-    if (o.geometry) o.geometry.dispose();
-    if (o.material) {
-      const mats = Array.isArray(o.material) ? o.material : [o.material];
-      mats.forEach((m) => {
-        for (const k in m) {
-          const v = m[k];
-          if (v && v.isTexture) v.dispose();
-        }
-        m.dispose();
-      });
-    }
+    o.shadow?.dispose();
+    if (o.isInstancedMesh) o.dispose();
+    if (o.geometry) geometries.add(o.geometry);
+    if (Array.isArray(o.material)) o.material.forEach(m => materials.add(m));
+    else if (o.material) materials.add(o.material);
   });
+  geometries.forEach(g => g.dispose());
+  for (const material of materials) {
+    Object.values(material).forEach(v => { if (v?.isTexture) textures.add(v); });
+    material.dispose();
+  }
+  textures.forEach(t => t.dispose());
 }
 
 export function screenToWorldRay(camera, ndcX, ndcY, raycaster) {

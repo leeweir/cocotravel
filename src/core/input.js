@@ -16,7 +16,8 @@ export class Input {
     this.touchJump = false;
 
     window.addEventListener('keydown', (e) => {
-      if (['Tab', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
+      if (e.metaKey || e.ctrlKey || e.altKey || (!this.capturesKeys?.() && e.code !== 'Escape')) return;
+      if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
       if (!this.keys.has(e.code)) this.pressed.add(e.code);
       this.keys.add(e.code);
       this.onAnyInput?.();
@@ -25,10 +26,11 @@ export class Input {
       this.keys.delete(e.code);
       this.released.add(e.code);
     });
-    window.addEventListener('blur', () => this.keys.clear());
 
     canvas.addEventListener('pointerdown', (e) => {
       if (!this.enabled) return;
+      if (this.dragging) return;
+      this.dragPointer = e.pointerId;
       this.dragging = true;
       this.lastX = e.clientX;
       this.lastY = e.clientY;
@@ -37,19 +39,28 @@ export class Input {
       this.onAnyInput?.();
     });
     canvas.addEventListener('pointermove', (e) => {
-      if (!this.dragging) return;
+      if (!this.dragging || e.pointerId !== this.dragPointer) return;
       this.dragDX += e.clientX - this.lastX;
       this.dragDY += e.clientY - this.lastY;
       this.lastX = e.clientX;
       this.lastY = e.clientY;
     });
     const endDrag = (e) => {
+      if (e.pointerId !== this.dragPointer) return;
+      this.dragPointer = null;
       this.dragging = false;
       canvas.style.cursor = 'grab';
       if (e.pointerId !== undefined && canvas.hasPointerCapture?.(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
     };
     canvas.addEventListener('pointerup', endDrag);
     canvas.addEventListener('pointercancel', endDrag);
+    canvas.addEventListener('lostpointercapture', endDrag);
+    window.addEventListener('blur', () => {
+      this.keys.clear();
+      this.endFrame();
+      this.touchJump = this.touchAction = false;
+      if (this.dragging) endDrag({pointerId:this.dragPointer});
+    });
     canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
       this.wheel += clamp(e.deltaY, -120, 120);
@@ -65,10 +76,12 @@ export class Input {
     const knob = document.getElementById('joystick-knob');
     if (!joy) return;
     let active = false, pid = null, cx = 0, cy = 0;
-    const radius = 40;
+    let radius = 40;
     const start = (e) => {
+      if (active) return;
       active = true; pid = e.pointerId;
       const r = joy.getBoundingClientRect();
+      radius = r.width * .33;
       cx = r.left + r.width / 2; cy = r.top + r.height / 2;
       joy.setPointerCapture(e.pointerId);
       move(e);
@@ -92,6 +105,8 @@ export class Input {
     joy.addEventListener('pointermove', move);
     joy.addEventListener('pointerup', end);
     joy.addEventListener('pointercancel', end);
+    joy.addEventListener('lostpointercapture', end);
+    window.addEventListener('blur', () => end({pointerId:pid}));
 
     const jump = document.getElementById('touch-jump');
     const act = document.getElementById('touch-act');
@@ -127,7 +142,7 @@ export class Input {
     return { x, y };
   }
 
-  get running() { return this.isDown('ShiftLeft') || this.isDown('ShiftRight'); }
+  get running() { return this.isDown('ShiftLeft') || this.isDown('ShiftRight') || Math.hypot(this.virtual.x,this.virtual.y) > .9; }
 
   endFrame() {
     this.pressed.clear();

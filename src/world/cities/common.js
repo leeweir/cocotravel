@@ -2,6 +2,21 @@ import * as THREE from 'three';
 import { canvasTexture, pavingTexture } from '../../core/utils.js';
 import { createFlagPole } from '../props.js';
 
+// Paving on adjoining plazas and curved paths shares the same stone size and direction.
+function alignPaving(mesh) {
+  const map = mesh.material.map;
+  const size = map?.userData.tileSize;
+  if (!size) return;
+  map.repeat.set(1,1);
+  mesh.updateMatrix();
+  const {position, uv} = mesh.geometry.attributes;
+  const point = new THREE.Vector3();
+  for (let i = 0; i < position.count; i++) {
+    point.fromBufferAttribute(position,i).applyMatrix4(mesh.matrix);
+    uv.setXY(i, point.x / size, -point.z / size);
+  }
+}
+
 export function addGroundPatch(parent, {
   x = 0, z = 0, width = 10, depth = 10, rotation = 0, y = 0.02,
   texture = null, color = 0xffffff, roughness = 0.95, opacity = 1,
@@ -23,6 +38,7 @@ export function addGroundPatch(parent, {
   mesh.rotation.z = rotation;
   mesh.position.set(x, y, z);
   mesh.receiveShadow = true;
+  alignPaving(mesh);
   parent.add(mesh);
   return mesh;
 }
@@ -45,6 +61,7 @@ export function addCirclePatch(parent, {
   disc.rotation.x = -Math.PI / 2;
   disc.position.set(x, y, z);
   disc.receiveShadow = true;
+  alignPaving(disc);
   parent.add(disc);
   if (ring) {
     const rim = new THREE.Mesh(
@@ -98,6 +115,7 @@ export function addPath(parent, {
   });
   const mesh = new THREE.Mesh(geo, mat);
   mesh.receiveShadow = true;
+  alignPaving(mesh);
   parent.add(mesh);
   return mesh;
 }

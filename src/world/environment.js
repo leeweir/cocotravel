@@ -1,6 +1,7 @@
 import * as THREE from 'three';
+import skyUrl from '../assets/watercolor-sky.webp';
 import {
-  canvas2d, canvasTexture, cloudTexture, dotTexture, sandTexture, TAU,
+  canvas2d, canvasTexture, dotTexture, sandTexture, TAU,
   mulberry32, rand, lerp,
 } from '../core/utils.js';
 
@@ -13,14 +14,13 @@ export const THEMES = {
     sunDir: new THREE.Vector3(0.55, 0.62, 0.42).normalize(),
     waterDeep: '#2c6478',
     waterShallow: '#6fb9b8',
-    fog: '#f4ddc1',
-    hemiSky: '#ffeacf',
+    fog: '#d8e5df',
+    hemiSky: '#e2f1fd',
     hemiGround: '#7f7356',
     sunLight: '#fff0d2',
     sunIntensity: 2.55,
     fillLight: '#a9c9de',
-    cloudTint: '#fff4e2',
-    cloudCount: 14,
+    skyTurn: .32, skyTint: '#fff2de',
     exposure: 1.02,
   },
   france: {
@@ -31,14 +31,13 @@ export const THEMES = {
     sunDir: new THREE.Vector3(-0.72, 0.30, 0.33).normalize(),
     waterDeep: '#466a80',
     waterShallow: '#8fbcb6',
-    fog: '#efc9b4',
-    hemiSky: '#ffdcc6',
+    fog: '#efd9d2',
+    hemiSky: '#e5e1f6',
     hemiGround: '#71605a',
     sunLight: '#ffd3a0',
     sunIntensity: 2.5,
     fillLight: '#d7b9cf',
-    cloudTint: '#ffeede',
-    cloudCount: 16,
+    skyTurn: 1.43, skyTint: '#f8d5d5',
     exposure: 1.04,
   },
   japan: {
@@ -49,54 +48,75 @@ export const THEMES = {
     sunDir: new THREE.Vector3(0.3, 0.72, -0.42).normalize(),
     waterDeep: '#3b7586',
     waterShallow: '#8fcac2',
-    fog: '#f4d9c8',
-    hemiSky: '#fff0e4',
+    fog: '#dfe7e6',
+    hemiSky: '#e2f1f3',
     hemiGround: '#7b7059',
     sunLight: '#fff3dc',
     sunIntensity: 2.6,
     fillLight: '#c7d5e2',
-    cloudTint: '#fff5ea',
-    cloudCount: 12,
+    skyTurn: .64, skyTint: '#ffe8eb',
     exposure: 1.03,
   },
 };
 
+let skyMap, reflectionMap, skyReady;
+export function prepareSky() {
+  if (!skyMap) {
+    let finish;
+    skyReady = new Promise(resolve => { finish = resolve; });
+    skyMap = new THREE.TextureLoader().load(skyUrl, (texture) => {
+      // Small prefiltered environment for brass, glass and leather.
+      const { c, ctx } = canvas2d(256,128);
+      ctx.drawImage(texture.image, 0,0,256,64);
+      const ground = ctx.createLinearGradient(0,64,0,128);
+      ground.addColorStop(0,'#c4bca4');
+      ground.addColorStop(.4,'#8d9784');
+      ground.addColorStop(1,'#747568');
+      ctx.fillStyle = ground;
+      ctx.fillRect(0,64,256,64);
+      reflectionMap = new THREE.CanvasTexture(c);
+      reflectionMap.colorSpace = THREE.SRGBColorSpace;
+      reflectionMap.mapping = THREE.EquirectangularReflectionMapping;
+      finish();
+    }, undefined, () => finish());
+    skyMap.colorSpace = THREE.SRGBColorSpace;
+    skyMap.wrapS = THREE.MirroredRepeatWrapping;
+  }
+  return skyReady;
+}
+
 function skyMaterial(theme) {
   return new THREE.ShaderMaterial({
-    side: THREE.BackSide,
-    depthWrite: false,
+    side: THREE.BackSide, depthWrite: false,
     uniforms: {
-      uTop: { value: new THREE.Color(theme.skyTop) },
-      uHorizon: { value: new THREE.Color(theme.skyHorizon) },
-      uBottom: { value: new THREE.Color(theme.skyBottom) },
-      uSunColor: { value: new THREE.Color(theme.sunColor) },
-      uSunDir: { value: theme.sunDir.clone() },
+      uPaper: {value: skyMap}, uPaint: {value: reflectionMap ? 1 : 0}, uTurn: {value: theme.skyTurn},
+      uTop: {value: new THREE.Color(theme.skyTop)}, uHorizon: {value: new THREE.Color(theme.fog)},
+      uTint: {value: new THREE.Color(theme.skyTint)}, uSunDir: {value: theme.sunDir},
+      uSunColor: {value: new THREE.Color(theme.sunColor)},
     },
-    vertexShader: /* glsl */`
+    vertexShader: `
       varying vec3 vDir;
       void main() {
-        vDir = normalize(position);
-        vec4 mv = modelViewMatrix * vec4(position, 1.0);
-        gl_Position = projectionMatrix * mv;
-      }
-    `,
-    fragmentShader: /* glsl */`
+        vec4 world = modelMatrix * vec4(position, 1.);
+        vDir = world.xyz - cameraPosition;
+        gl_Position = projectionMatrix * viewMatrix * world;
+      }`,
+    fragmentShader: `
       varying vec3 vDir;
-      uniform vec3 uTop, uHorizon, uBottom, uSunColor, uSunDir;
+      uniform sampler2D uPaper;
+      uniform vec3 uTop,uHorizon,uTint,uSunDir,uSunColor;
+      uniform float uTurn,uPaint;
       void main() {
         vec3 dir = normalize(vDir);
-        float h = dir.y;
-        vec3 col = mix(uHorizon, uTop, smoothstep(0.02, 0.72, h));
-        col = mix(uBottom, col, smoothstep(-0.06, 0.03, h));
-        float sun = max(dot(dir, uSunDir), 0.0);
-        col += uSunColor * pow(sun, 900.0) * 3.0;
-        col += uSunColor * pow(sun, 18.0) * 0.18;
-        col += uSunColor * pow(sun, 4.0) * 0.05;
-        float haze = smoothstep(0.12, -0.02, h);
-        col = mix(col, uHorizon * 1.02, haze * 0.35);
-        gl_FragColor = vec4(col, 1.0);
-      }
-    `,
+        float h = asin(clamp(dir.y, -1., 1.));
+        vec2 uv = vec2(atan(dir.x, -dir.z) / 3.141593 + uTurn, clamp(.105 + h * 1.62, .01, .995));
+        vec3 wash = texture2D(uPaper, uv).rgb * uTint;
+        vec3 col = mix(uHorizon, uTop, smoothstep(-.03, .66, h));
+        col = mix(col, wash, uPaint * smoothstep(-.035, .075, h) * (1. - smoothstep(.57, 1.12, h)));
+        float sun = max(0., dot(dir,uSunDir));
+        col += uSunColor * (.13 * pow(sun,24.) + 1.7 * pow(sun,2200.));
+        gl_FragColor = vec4(col,1.);
+      }`,
   });
 }
 
@@ -121,9 +141,9 @@ function waterMaterial(theme, extraIsland = null) {
       uniform float uTime;
       void main() {
         vec3 p = position;
-        float d = length(p.xz);
+        float d = length(p.xy);
         float wave = sin(p.x * 0.22 + uTime * 0.55) * 0.5 + sin(p.y * 0.31 - uTime * 0.4) * 0.5;
-        p.z += wave * 0.12 * smoothstep(200.0, 30.0, d);
+        p.z += wave * 0.12 * (1.0 - smoothstep(30.0, 200.0, d));
         vec4 wp = modelMatrix * vec4(p, 1.0);
         vWorld = wp.xyz;
         gl_Position = projectionMatrix * viewMatrix * wp;
@@ -144,9 +164,9 @@ function waterMaterial(theme, extraIsland = null) {
         vec3 viewDir = normalize(cameraPosition - vWorld);
         float fres = pow(1.0 - max(dot(viewDir, n), 0.0), 2.6);
 
-        float shoreA = smoothstep(78.0, 45.0, length(vWorld.xz));
+        float shoreA = 1.0 - smoothstep(45.0, 78.0, length(vWorld.xz));
         float shoreB = uIslandB.z > 0.5
-          ? smoothstep(uIslandB.z * 1.75, uIslandB.z * 0.82, length(vWorld.xz - uIslandB.xy))
+          ? 1.0 - smoothstep(uIslandB.z * 0.82, uIslandB.z * 1.75, length(vWorld.xz - uIslandB.xy))
           : 0.0;
         float shore = max(shoreA, shoreB);
         vec3 col = mix(uDeep, uShallow, shore * 0.72);
@@ -161,7 +181,7 @@ function waterMaterial(theme, extraIsland = null) {
         col += vec3(0.05, 0.08, 0.07) * bands * shore * 0.6;
 
         float dist = length(cameraPosition - vWorld);
-        col = mix(col, uFog, smoothstep(180.0, 560.0, dist));
+        col = mix(col, uFog, smoothstep(55.0, 320.0, dist));
         gl_FragColor = vec4(col, 1.0);
       }
     `,
@@ -175,48 +195,26 @@ export function createEnvironment(scene, theme, {
   const group = new THREE.Group();
   scene.add(group);
 
-  scene.fog = new THREE.Fog(new THREE.Color(theme.fog), 150, 560);
+  scene.fog = new THREE.Fog(new THREE.Color(theme.fog), 55, 320);
 
   // sky dome
   const sky = new THREE.Mesh(new THREE.SphereGeometry(700, 40, 24), skyMaterial(theme));
   sky.frustumCulled = false;
   group.add(sky);
 
-  // visible sun glow
-  const sunPos = theme.sunDir.clone().multiplyScalar(610);
-  const sunSprite = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: dotTexture(), color: new THREE.Color(theme.sunColor),
-    transparent: true, opacity: 0.75, depthWrite: false, fog: false,
-    blending: THREE.AdditiveBlending,
-  }));
-  sunSprite.scale.setScalar(150);
-  sunSprite.position.copy(sunPos);
-  group.add(sunSprite);
-
-  // clouds
-  const cloudTex = cloudTexture();
   const r = mulberry32(77);
-  const clouds = new THREE.Group();
-  for (let i = 0; i < theme.cloudCount; i++) {
-    const mat = new THREE.SpriteMaterial({
-      map: cloudTex, transparent: true, opacity: 0.3 + r() * 0.28,
-      color: new THREE.Color(theme.cloudTint), depthWrite: false, fog: false,
-    });
-    const s = new THREE.Sprite(mat);
-    const ang = r() * TAU;
-    const dist = 170 + r() * 260;
-    s.position.set(Math.cos(ang) * dist, 36 + r() * 90, Math.sin(ang) * dist);
-    const w = 70 + r() * 150;
-    s.scale.set(w, w * 0.42, 1);
-    s.userData.speed = 0.25 + r() * 0.5;
-    s.userData.startAngle = ang;
-    s.userData.dist = dist;
-    clouds.add(s);
-  }
-  group.add(clouds);
+  scene.environment = reflectionMap || null;
+  scene.environmentIntensity = .33;
 
   // ocean
-  const water = new THREE.Mesh(new THREE.PlaneGeometry(1100, 1100, 110, 110), waterMaterial(theme, extraIsland));
+  // Concentrate wave vertices near the playable shoreline and spread them towards the horizon.
+  const waterGeometry = new THREE.PlaneGeometry(2,2,64,64);
+  const coordinates = waterGeometry.attributes.position;
+  const oceanAxis = t => 550 * (.28*t + .72*t*t*t);
+  for (let i = 0; i < coordinates.count; i++) {
+    coordinates.setXY(i, oceanAxis(coordinates.getX(i)), oceanAxis(coordinates.getY(i)));
+  }
+  const water = new THREE.Mesh(waterGeometry, waterMaterial(theme, extraIsland));
   water.rotation.x = -Math.PI / 2;
   water.position.y = -0.55;
   group.add(water);
@@ -241,7 +239,7 @@ export function createEnvironment(scene, theme, {
   group.add(foam);
 
   // lights
-  const hemi = new THREE.HemisphereLight(theme.hemiSky, theme.hemiGround, 0.78);
+  const hemi = new THREE.HemisphereLight(theme.hemiSky, theme.hemiGround, 1.37);
   group.add(hemi);
 
   const sun = new THREE.DirectionalLight(theme.sunLight, theme.sunIntensity);
@@ -260,7 +258,7 @@ export function createEnvironment(scene, theme, {
   sun.position.copy(theme.sunDir).multiplyScalar(Math.max(110, shadowFar * 0.42)).add(sun.target.position);
   group.add(sun, sun.target);
 
-  const fill = new THREE.DirectionalLight(theme.fillLight, 0.5);
+  const fill = new THREE.DirectionalLight(theme.fillLight, 0.76);
   fill.position.set(-theme.sunDir.x * 40, 26, -theme.sunDir.z * 40 - 10);
   group.add(fill);
 
@@ -271,12 +269,6 @@ export function createEnvironment(scene, theme, {
   function update(dt) {
     time += dt;
     water.material.uniforms.uTime.value = time;
-    cloudTex.offset.x += dt * 0.002;
-    clouds.children.forEach((c) => {
-      const ang = c.userData.startAngle + time * 0.002 * c.userData.speed;
-      c.position.x = Math.cos(ang) * c.userData.dist;
-      c.position.z = Math.sin(ang) * c.userData.dist;
-    });
     foam.children.forEach((s) => {
       s.material.opacity = 0.055 + (Math.sin(time * 0.7 + s.userData.phase) * 0.5 + 0.5) * 0.12;
     });

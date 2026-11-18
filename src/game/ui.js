@@ -1,4 +1,5 @@
-import { drawPortrait } from '../world/npc.js';
+import { cityInk, citySeal } from '../world/postmarks.js';
+const residentPortraits = import.meta.glob('../assets/residents/*.webp', { eager: true, import: 'default' });
 
 const $ = (id) => document.getElementById(id);
 
@@ -96,6 +97,7 @@ export class UI {
     this._captionTimer = null;
     this._cinemaTimer = null;
 
+    document.querySelectorAll('[data-seal]').forEach(item => item.prepend(citySeal(item.dataset.seal)));
     this.bind();
   }
 
@@ -158,14 +160,12 @@ export class UI {
     this.hide('loading');
   }
 
-  setTitleArt(url) {
-    if (this.d.titleArt) this.d.titleArt.style.backgroundImage = `url("${url}")`;
-  }
-
   /* ---------------- HUD ---------------- */
   setCity(city) {
     const d = this.d;
-    d.locStamp.textContent = city.stamp;
+    d.locStamp.replaceChildren(citySeal(city.id));
+    d.hud.style.setProperty('--city-ink', cityInk[city.id]);
+    document.getElementById('journal-note-text').textContent = city.intro;
     d.locStamp.className = `loc-stamp ${city.id}`;
     d.locCn.textContent = city.locationCn;
     d.locEn.textContent = city.locationEn;
@@ -225,7 +225,7 @@ export class UI {
   setCompass(angle, label) {
     this.d.compass.classList.remove('hidden');
     this.d.compassArrow.style.transform = `rotate(${angle}rad)`;
-    if (label) this.d.compassLabel.textContent = label;
+    if (label !== this.d.compassLabel.textContent) this.d.compassLabel.textContent = label;
   }
 
   hideCompass() {
@@ -304,10 +304,11 @@ export class UI {
     const textLines = (lines && lines.length) ? lines : ['……'];
     this.dialogue = { lines: textLines, index: 0, onDone, def };
     this.dialogueOpen = true;
-    drawPortrait(this.d.portrait, def);
+    this.d.portrait.src = residentPortraits[`../assets/residents/${def.id}.webp`];
     this.d.speaker.textContent = def.name || '';
     this.d.speakerSub.textContent = def.nameSub || '';
     this.d.dialogue.classList.remove('hidden');
+    this.d.hud.classList.add('in-dialogue');
     this.showLine();
   }
 
@@ -361,6 +362,7 @@ export class UI {
     this.dialogueOpen = false;
     this.typing = false;
     this.hide('dialogue');
+    this.d.hud.classList.remove('in-dialogue');
     cb?.();
   }
 
@@ -383,8 +385,8 @@ export class UI {
       const node = document.createElement('div');
       node.className = stamped ? 'passport-city' : 'passport-city locked';
 
-      const seal = document.createElement('div');
-      seal.className = 'pc-seal';
+      node.style.setProperty('--city-ink', cityInk[city.id]);
+      node.setAttribute('aria-label', city.name + (stamped ? '，已盖章' : '，待盖章'));
 
       const flag = document.createElement('div');
       flag.className = 'pc-flag';
@@ -392,7 +394,7 @@ export class UI {
 
       const mark = document.createElement('div');
       mark.className = 'pc-mark';
-      mark.textContent = stamped ? '✦' : '·';
+      mark.appendChild(citySeal(city.id, stamped ? cityInk[city.id] : '#867967'));
 
       const name = document.createElement('div');
       name.className = 'pc-name';
@@ -402,7 +404,7 @@ export class UI {
       spark.className = 'pc-spark';
       spark.textContent = `${sparks[city.id] || 0} / 5 星火`;
 
-      node.append(seal, flag, mark, name, spark);
+      node.append(flag, mark, name, spark);
       d.passport.appendChild(node);
     });
 

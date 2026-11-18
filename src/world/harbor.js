@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { batchRigidProp } from '../core/static-meshes.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import {
   canvas2d, canvasTexture, dotTexture, flagTexture, mulberry32, TAU,
@@ -105,7 +106,7 @@ export function createSeawall({
       group.add(cap);
     }
   }
-  return group;
+  return batchRigidProp(group);
 }
 
 /* ------------------------------------------------------------------ */
@@ -352,7 +353,7 @@ export function createFerryTerminal({ x = 0, z = 0, yaw = 0 } = {}) {
   group.add(canopy);
 
   group.traverse((o) => { if (o.isMesh) o.castShadow = o.castShadow ?? false; });
-  return group;
+  return batchRigidProp(group);
 }
 
 /* ------------------------------------------------------------------ */
@@ -672,6 +673,13 @@ export function createFerry({
     };
   }
 
+  // The stretch of open water lies between the ends of the two piers.
+  function crossingStand(from, target) {
+    const midChannel = (docks.main.stand.z + docks.liberty.stand.z) / 2;
+    if ((from.z < midChannel) !== (target.z < midChannel)) return currentStand();
+    return null;
+  }
+
   function arrival(dest) {
     const d = docks[dest];
     return { pos: d.arrive.clone(), yaw: d.yaw, name: d.name };
@@ -748,6 +756,7 @@ export function createFerry({
     get boatYaw() { return boat.group.rotation.y; },
     beginRide,
     currentStand,
+    crossingStand,
     arrival,
     getDeckPoint,
     update,
@@ -954,26 +963,31 @@ export function createCastleClinton() {
   blob.rotation.x = -Math.PI / 2;
   blob.position.y = 0.03;
   group.add(blob);
-  return group;
+  return batchRigidProp(group);
 }
 
 export function createSphereSculpture() {
   const group = new THREE.Group();
-  const bronze = new THREE.MeshStandardMaterial({
-    color: '#556b5f', roughness: 0.35, metalness: 0.72, flatShading: false,
-  });
-  const sphere = new THREE.Mesh(new THREE.IcosahedronGeometry(1.9, 3), bronze);
-  sphere.position.y = 3.0;
-  sphere.castShadow = true;
-  sphere.receiveShadow = true;
-  group.add(sphere);
-  // etched latitude-like ring seams
-  for (const rot of [0.35, -0.5, 1.2]) {
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(1.88, 0.018, 4, 64), S('#3c4b42', { metalness: 0.6, roughness: 0.4 }));
-    ring.rotation.set(Math.PI / 2 + rot, 0, rot * 0.6);
-    ring.position.y = 3.0;
-    group.add(ring);
+  const globe = new THREE.Group();
+  globe.position.y = 3;
+  globe.rotation.set(.26,.5,-.32);
+  const core = new THREE.Mesh(new THREE.SphereGeometry(1.84,32,18), S('#5b5947'));
+  globe.add(core);
+  const patina = ['#ae9266','#8f8160','#a99c77','#858e72','#b0986f'].map(color =>
+    S(color, { roughness:.62, metalness:.46 }));
+  const bands = [0,.41,.91,1.58,2.16,2.68,Math.PI];
+  for (let j = 0; j < bands.length-1; j++) {
+    const count = [3,5,7,6,5,3][j], width = TAU/count;
+    for (let i = 0; i < count; i++) {
+      const radius = 1.88 + .024*Math.sin(i*2.5+j);
+      const shell = new THREE.Mesh(new THREE.SphereGeometry(radius,12,5,
+        width*(i+j*.36), width-.022, bands[j]+.007, bands[j+1]-bands[j]-.014),
+        patina[(i*3+j*2)%patina.length]);
+      shell.castShadow = shell.receiveShadow = true;
+      globe.add(shell);
+    }
   }
+  group.add(globe);
   const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(1.25, 1.5, 1.1, 24), S('#8f8778', { roughness: 0.9 }));
   pedestal.position.y = 0.55;
   pedestal.castShadow = true;
@@ -989,7 +1003,7 @@ export function createSphereSculpture() {
   base.position.y = 0.16;
   base.receiveShadow = true;
   group.add(base);
-  return group;
+  return batchRigidProp(group);
 }
 
 /* ------------------------------------------------------------------ */
@@ -1028,7 +1042,7 @@ export function createSailboat({ sailColor = '#f2e7d0', hullColor = '#314e5c', s
   group.add(jib);
   group.scale.setScalar(scale);
   group.userData.phase = Math.random() * TAU;
-  return group;
+  return batchRigidProp(group);
 }
 
 export function createHarborCraft() {
@@ -1160,7 +1174,7 @@ export function createEllisIsland() {
   seawall.position.y = -1.3;
   group.add(seawall);
   group.position.set(-84, 0, -126);
-  return group;
+  return batchRigidProp(group);
 }
 
 export function createHarborPatrol() {

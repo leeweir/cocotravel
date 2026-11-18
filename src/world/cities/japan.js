@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { batchRigidProp } from '../../core/static-meshes.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { THEMES, createEnvironment, createIsland, createBirds, createPetals } from '../environment.js';
 import {
@@ -16,7 +17,7 @@ import {
   canvas2d, canvasTexture, TAU,
 } from '../../core/utils.js';
 import {
-  addPath, addCirclePatch, addGroundPatch, placeLandmark, addFlag, labelSprite,
+  addPath, addCirclePatch, addGroundPatch, placeLandmark, addFlag,
 } from './common.js';
 
 function createKoiPond() {
@@ -232,137 +233,6 @@ function createRamenStall() {
   return { group, update };
 }
 
-function createMochi() {
-  const root = new THREE.Group();
-  const bodyGroup = new THREE.Group();
-  root.add(bodyGroup);
-  const white = new THREE.MeshStandardMaterial({ color: '#f6efe2', roughness: 0.8 });
-  const orange = new THREE.MeshStandardMaterial({ color: '#df9d5e', roughness: 0.85 });
-  const dark = new THREE.MeshStandardMaterial({ color: '#4a4038', roughness: 0.85 });
-  const body = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 12), white);
-  body.scale.set(1, 1.2, 0.9);
-  body.position.y = 0.24;
-  body.castShadow = true;
-  bodyGroup.add(body);
-  const patch = new THREE.Mesh(new THREE.SphereGeometry(0.205, 14, 10, 0, Math.PI * 0.9, 0, Math.PI * 0.7), orange);
-  patch.position.set(0.02, 0.28, -0.01);
-  bodyGroup.add(patch);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.16, 18, 14), white);
-  head.position.y = 0.52;
-  head.castShadow = true;
-  bodyGroup.add(head);
-  const headPatch = new THREE.Mesh(new THREE.SphereGeometry(0.162, 14, 10, 0, Math.PI * 0.8, 0, Math.PI * 0.65), dark);
-  headPatch.position.set(-0.02, 0.545, -0.02);
-  bodyGroup.add(headPatch);
-  for (const s of [-1, 1]) {
-    const ear = new THREE.Mesh(new THREE.ConeGeometry(0.065, 0.14, 4), s > 0 ? orange : dark);
-    ear.position.set(s * 0.1, 0.66, 0);
-    ear.rotation.z = s * -0.25;
-    ear.castShadow = true;
-    bodyGroup.add(ear);
-    const inner = new THREE.Mesh(new THREE.ConeGeometry(0.032, 0.08, 4), new THREE.MeshStandardMaterial({ color: '#f0b8a2', roughness: 0.9 }));
-    inner.position.set(s * 0.1, 0.655, 0.022);
-    inner.rotation.z = s * -0.25;
-    bodyGroup.add(inner);
-  }
-  // eyes (happy arcs)
-  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x3a2c24 });
-  for (const s of [-1, 1]) {
-    const eye = new THREE.Mesh(new THREE.TorusGeometry(0.032, 0.009, 4, 10, Math.PI), eyeMat);
-    eye.position.set(s * 0.06, 0.53, 0.147);
-    eye.rotation.z = Math.PI;
-    bodyGroup.add(eye);
-    const blush = new THREE.Mesh(new THREE.CircleGeometry(0.02, 8), new THREE.MeshBasicMaterial({ color: 0xe59b8a, transparent: true, opacity: 0.5 }));
-    blush.position.set(s * 0.105, 0.49, 0.14);
-    bodyGroup.add(blush);
-  }
-  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.013, 6, 5), new THREE.MeshBasicMaterial({ color: 0xd08776 }));
-  nose.position.set(0, 0.515, 0.16);
-  bodyGroup.add(nose);
-  for (const s of [-1, 1]) {
-    for (let i = 0; i < 2; i++) {
-      const whisker = new THREE.Mesh(new THREE.CylinderGeometry(0.002, 0.002, 0.13, 3), eyeMat);
-      whisker.position.set(s * 0.13, 0.505 + i * 0.02, 0.13);
-      whisker.rotation.z = Math.PI / 2 + s * (i ? -0.2 : 0.2);
-      bodyGroup.add(whisker);
-    }
-  }
-  const collar = new THREE.Mesh(new THREE.TorusGeometry(0.115, 0.022, 6, 16), new THREE.MeshStandardMaterial({ color: '#c95b4e', roughness: 0.7 }));
-  collar.rotation.x = Math.PI / 2;
-  collar.position.y = 0.37;
-  bodyGroup.add(collar);
-  const bell = new THREE.Mesh(new THREE.SphereGeometry(0.032, 8, 6), new THREE.MeshStandardMaterial({ color: '#e7c05a', metalness: 0.6, roughness: 0.3 }));
-  bell.position.set(0, 0.34, 0.11);
-  bodyGroup.add(bell);
-  const tail = new THREE.Mesh(new THREE.CapsuleGeometry(0.035, 0.28, 4, 6), white);
-  tail.position.set(-0.2, 0.22, -0.14);
-  tail.rotation.z = 0.8;
-  tail.rotation.x = 0.3;
-  bodyGroup.add(tail);
-  for (const s of [-1, 1]) {
-    const paw = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 6), white);
-    paw.scale.set(0.9, 0.6, 1.2);
-    paw.position.set(s * 0.11, 0.08, 0.16);
-    bodyGroup.add(paw);
-  }
-  const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.3, 16), new THREE.MeshBasicMaterial({
-    color: 0x2c2119, transparent: true, opacity: 0.2, depthWrite: false,
-  }));
-  shadow.rotation.x = -Math.PI / 2;
-  shadow.position.y = 0.02;
-  root.add(shadow);
-
-  const name = labelSprite(['Mochi', '招财猫'], { width: 1.4, height: 0.42, scale: 1 });
-  name.position.y = 1.25;
-  root.add(name);
-
-  const markerTex = (() => {
-    const { c, ctx } = canvas2d(128, 128);
-    ctx.beginPath(); ctx.arc(64, 58, 34, 0, TAU);
-    ctx.fillStyle = '#fffaf0'; ctx.fill();
-    ctx.lineWidth = 6; ctx.strokeStyle = '#7b8b99'; ctx.stroke();
-    ctx.fillStyle = '#7b8b99'; ctx.font = 'bold 44px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('…', 64, 58);
-    return canvasTexture(c);
-  })();
-  const marker = new THREE.Sprite(new THREE.SpriteMaterial({ map: markerTex, transparent: true, depthWrite: false }));
-  marker.scale.setScalar(0.48);
-  marker.position.y = 1.0;
-  root.add(marker);
-
-  let talking = false;
-  let time = 0;
-  function update(dt, t, playerPos) {
-    time += dt;
-    bodyGroup.position.y = Math.sin(time * 1.7) * 0.012;
-    tail.rotation.z = 0.8 + Math.sin(time * 1.3) * 0.25;
-    marker.position.y = 1.0 + Math.sin(time * 2.2) * 0.05;
-    marker.visible = !talking;
-    if (playerPos) {
-      const dx = playerPos.x - root.position.x;
-      const dz = playerPos.z - root.position.z;
-      const dist = Math.hypot(dx, dz);
-      if (dist < 5) {
-        const target = Math.atan2(dx, dz);
-        let diff = target - root.rotation.y;
-        while (diff > Math.PI) diff -= TAU;
-        while (diff < -Math.PI) diff += TAU;
-        root.rotation.y += diff * Math.min(1, dt * 4);
-        head.rotation.y = Math.max(-0.4, Math.min(0.4, diff)) * 0.6;
-      }
-    }
-    if (talking) {
-      head.rotation.z = Math.sin(time * 2) * 0.08;
-    }
-  }
-  function setMarker() {}
-  function setTalking(on) { talking = on; marker.visible = !on; name.visible = !on; }
-  return {
-    def: { id: 'mochi', name: 'Mochi', nameSub: '招财猫', species: 'cat', marker: 'hint', dialogues: {} },
-    root, body: bodyGroup, headGroup: head, marker, nameSprite: name, update, setMarker, setTalking,
-  };
-}
-
 /* ------------------------------------------------------------------ */
 /*  Asakusa architecture                                               */
 /* ------------------------------------------------------------------ */
@@ -391,123 +261,103 @@ const MAT = {
   white: new THREE.MeshStandardMaterial({ color: '#f4f0e5', roughness: 0.78 }),
 };
 
-function lanternLabel(text) {
-  const { c, ctx } = canvas2d(512, 512);
-  ctx.clearRect(0, 0, 512, 512);
-  ctx.fillStyle = '#241512';
-  ctx.textAlign = 'center';
-  const chars = [...text].slice(0, 3);
-  ctx.font = `bold ${chars.length === 3 ? 116 : chars.length === 2 ? 168 : 210}px "Hiragino Mincho ProN", "Songti SC", serif`;
-  const ys = chars.length === 3 ? [132, 274, 416] : chars.length === 2 ? [220, 410] : [330];
-  chars.forEach((ch, i) => ctx.fillText(ch, 256, ys[i]));
-  return canvasTexture(c);
-}
-
 function redLantern(radius, height, text) {
   const group = new THREE.Group();
-  const bodyMat = new THREE.MeshStandardMaterial({
-    color: '#b33026', emissive: '#ff6f4e', emissiveIntensity: 0.32, roughness: 0.7,
+  const {c,ctx} = canvas2d(1024,512);
+  const wash = ctx.createLinearGradient(0,0,0,512);
+  wash.addColorStop(0,'#a53529'); wash.addColorStop(.28,'#d55d43');
+  wash.addColorStop(.68,'#c34937'); wash.addColorStop(1,'#8b322b');
+  ctx.fillStyle = wash; ctx.fillRect(0,0,1024,512);
+  for (let i = 0; i < 29; i++) {
+    const y = i * 512 / 28;
+    ctx.fillStyle = 'rgba(87,34,29,.24)'; ctx.fillRect(0,y,1024,2.5);
+    ctx.fillStyle = 'rgba(255,191,132,.22)'; ctx.fillRect(0,y+3,1024,2);
+  }
+  const chars = [...text];
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const fontSize = Math.min(185, 374 / chars.length);
+  ctx.font = `900 ${fontSize}px "Hiragino Mincho ProN","Songti SC",serif`;
+  ctx.strokeStyle = '#eed09a'; ctx.lineWidth = 4; ctx.fillStyle = '#38251e';
+  for (const x of [256,768]) chars.forEach((ch,i) => {
+    const y = 265 + (i-(chars.length-1)/2) * fontSize;
+    ctx.strokeText(ch,x,y); ctx.fillText(ch,x,y);
   });
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius * 0.96, height, 24, 1, true), bodyMat);
+  const profile = [];
+  for (let i = 0; i <= 56; i++) {
+    const t = i/56;
+    const bulge = .54 + .47 * Math.pow(Math.sin(t*Math.PI),.63);
+    profile.push(new THREE.Vector2(radius*(bulge - .012*(i%2)), (t-.5)*height));
+  }
+  const paper = new THREE.MeshStandardMaterial({map:canvasTexture(c), roughness:.88, emissive:'#e86f48', emissiveIntensity:.075});
+  const body = new THREE.Mesh(new THREE.LatheGeometry(profile,40), paper);
+  body.rotation.y = Math.PI/2;
   group.add(body);
-  for (const s of [-1, 1]) {
-    const rim = new THREE.Mesh(new THREE.CylinderGeometry(radius * 1.04, radius * 1.04, 0.12, 24), MAT.darkWood);
-    rim.position.y = s * (height / 2 - 0.02);
+  for (const side of [-1,1]) {
+    const radiusCap = radius*.61;
+    const rim = new THREE.Mesh(new THREE.CylinderGeometry(radiusCap,radiusCap,height*.055,36), MAT.darkWood);
+    rim.position.y = side*height*.49;
     group.add(rim);
+    const hem = new THREE.Mesh(new THREE.TorusGeometry(radiusCap,.022*radius,6,36), MAT.gold);
+    hem.rotation.x = Math.PI/2;
+    hem.position.y = side*height*.51;
+    group.add(hem);
   }
-  for (const k of [-0.18, 0.18]) {
-    const rib = new THREE.Mesh(new THREE.TorusGeometry(radius * 0.99, 0.014, 4, 28), new THREE.MeshStandardMaterial({ color: '#73241d', roughness: 0.8 }));
-    rib.rotation.x = Math.PI / 2;
-    rib.position.y = k * height;
-    group.add(rib);
-  }
-  const labelMat = new THREE.MeshBasicMaterial({
-    map: lanternLabel(text), transparent: true, side: THREE.DoubleSide, depthWrite: false,
-  });
-  const arc = Math.PI * 0.62;
-  for (const s of [-1, 1]) {
-    const label = new THREE.Mesh(
-      new THREE.CylinderGeometry(radius * 1.008, radius * 1.008, height * 0.66, 16, 1, true, -arc / 2, arc),
-      labelMat,
-    );
-    if (s < 0) label.rotation.y = Math.PI;
-    group.add(label);
-  }
-  const cap = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.28, radius * 0.4, 0.16, 10), MAT.darkWood);
-  cap.position.y = height / 2 + 0.08;
-  group.add(cap);
-  const hook = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.5, 6), MAT.darkWood);
-  hook.position.y = height / 2 + 0.36;
+  const collar = new THREE.Mesh(new THREE.CylinderGeometry(radius*.48,radius*.35,height*.065,32),MAT.bronze);
+  collar.position.y = -height*.55;
+  group.add(collar);
+  const hook = new THREE.Mesh(new THREE.CylinderGeometry(.029,.029,height*.2,6), MAT.darkWood);
+  hook.position.y = height*.60;
   group.add(hook);
-  group.traverse((o) => { if (o.isMesh) o.castShadow = true; });
   return group;
 }
 
-function hipRoof(group, { radius, height, y, scaleZ = 0.62, material = MAT.charcoal, ridge = 0, eaveFactor = null }) {
-  const eaveW = radius * (eaveFactor ?? Math.SQRT2 * 1.06);
-  const eave = new THREE.Mesh(new THREE.BoxGeometry(eaveW, 0.26, eaveW * scaleZ), material);
-  eave.position.y = y;
-  eave.castShadow = true;
-  eave.receiveShadow = true;
-  group.add(eave);
-
-  const W = radius * Math.SQRT2;
-  const D = W * scaleZ;
-  const hw = W / 2, hd = D / 2;
-  const hl = Math.min(ridge || W * 0.42, W * 0.95) / 2;
-  const v = [
-    [-hw, 0, -hd], [hw, 0, -hd], [hw, 0, hd], [-hw, 0, hd],
-    [-hl, height, 0], [hl, height, 0],
-  ];
-  const tris = [
-    [3, 2, 5], [3, 5, 4],
-    [1, 0, 4], [1, 4, 5],
-    [0, 3, 4],
-    [2, 1, 5],
-  ];
-  const positions = [];
-  for (const t of tris) for (const i of t) positions.push(...v[i]);
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geo.computeVertexNormals();
-  const roof = new THREE.Mesh(geo, material);
-  roof.position.y = y;
-  roof.castShadow = true;
-  roof.receiveShadow = true;
-  group.add(roof);
-
-  if (ridge && W > 4) {
-    const beam = new THREE.Mesh(new THREE.BoxGeometry(hl * 2 + 0.3, 0.3, 0.38), material);
-    beam.position.y = y + height + 0.06;
-    beam.castShadow = true;
-    group.add(beam);
-    for (const s of [-1, 1]) {
-      const end = new THREE.Mesh(new THREE.SphereGeometry(0.17, 8, 6), MAT.gold);
-      end.position.set(s * (hl + 0.12), y + height + 0.1, 0);
-      group.add(end);
-    }
-    const theta = Math.atan2(height, hd);
-    const slopeLen = Math.hypot(height, hd);
-    const ribs = W > 14 ? 9 : W > 7 ? 7 : 5;
-    for (let i = 0; i < ribs; i++) {
-      const x = -hl + (i / (ribs - 1)) * hl * 2;
-      for (const s of [-1, 1]) {
-        const rib = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, slopeLen * 0.97), material);
-        rib.position.set(x, y + height / 2 + Math.cos(theta) * 0.05, s * (hd / 2 + Math.sin(theta) * 0.05));
-        rib.rotation.x = s > 0 ? theta : -theta;
-        group.add(rib);
+// Curved tile courses rise to the ridge and sweep up at all four eave corners.
+function hipRoof(group, { radius, height, y, scaleZ = .62, material = MAT.charcoal, ridge = 0, eaveFactor = null }) {
+  const w = radius * (eaveFactor ?? Math.SQRT2 * 1.06), hw = w/2, hd = hw*scaleZ;
+  const halfRidge = Math.min(ridge || w*.42, w*.9)/2;
+  const corners = [[-hw,hd],[hw,hd],[hw,-hd],[-hw,-hd]];
+  const tops = [[-halfRidge,0],[halfRidge,0],[halfRidge,0],[-halfRidge,0]];
+  const positions = [], colors = [], indices = [];
+  const steps = 10;
+  for (let side=0; side<4; side++) {
+    const end=(side+1)%4, [ax,az]=corners[side], [bx,bz]=corners[end];
+    const columns = 2*Math.max(9,Math.round(Math.hypot(bx-ax,bz-az)/.24));
+    const start = positions.length/3;
+    for (let j=-1; j<=steps; j++) {
+      const t=Math.max(0,j)/steps;
+      for (let i=0; i<=columns; i++) {
+        const u=i/columns;
+        const x=THREE.MathUtils.lerp(ax+(bx-ax)*u, tops[side][0]+(tops[end][0]-tops[side][0])*u, t);
+        const z=(az+(bz-az)*u)*(1-t);
+        const lift = height*.17*Math.pow(Math.abs(2*u-1),3)*Math.pow(1-t,2);
+        const lip = Math.min(.22,height*.09);
+        const tile = i%2 === 0 ? 1 : 0;
+        positions.push(x,y + height*(.39*t+.61*t*t)+lift+(j<0 ? -lip : tile*Math.min(.045,height*.025)),z);
+        const value = j<0 ? .68 : .84+.14*tile+.11*t;
+        colors.push(value,value*1.04,value*1.06);
+        if (j<steps && i<columns) {
+          const k=start+(j+1)*(columns+1)+i;
+          indices.push(k,k+1,k+columns+1, k+1,k+columns+2,k+columns+1);
+        }
       }
     }
   }
-
-  for (let i = 0; i < 4; i++) {
-    const a = Math.PI / 4 + i * Math.PI / 2;
-    const tip = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.18, 0.5), material);
-    tip.position.set(Math.cos(a) * eaveW * 0.49, y + 0.06, Math.sin(a) * eaveW * 0.49 * scaleZ);
-    tip.rotation.y = -a;
-    tip.rotation.z = 0.16;
-    group.add(tip);
-  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions,3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors,3));
+  geo.setIndex(indices); geo.computeVertexNormals();
+  const tileMat = material.clone();
+  tileMat.color.set(material===MAT.copper ? '#648078' : '#56616a');
+  tileMat.vertexColors = true;
+  tileMat.side = THREE.DoubleSide;
+  const roof = new THREE.Mesh(geo,tileMat);
+  roof.castShadow = roof.receiveShadow = true;
+  group.add(roof);
+  // A closed soffit sits behind the dark fascia when seen from below.
+  box(group,w*.98, .12, hd*1.96, MAT.darkWood, 0,y-.07,0);
+  const beam = new THREE.Mesh(new THREE.CapsuleGeometry(Math.min(.18,w*.024),halfRidge*2,4,12),material);
+  beam.rotation.z = Math.PI/2; beam.position.y = y+height+.055;
+  group.add(beam);
   return roof;
 }
 
@@ -530,7 +380,7 @@ function createKaminarimon() {
   }
   for (const z of [-2.05, 2.05]) {
     box(group, W + 0.4, 0.26, 0.3, MAT.vermilionDark, 0, 4.6, z);
-    box(group, W + 0.2, 0.2, 0.24, MAT.vermilion, 0, 1.15, z);
+    for (const side of [-1,1]) box(group, 2.8, .2, .24, MAT.vermilion, side*3.7, 1.15, z);
   }
   for (const x of [-4.4, 4.4]) {
     box(group, 0.28, 0.26, D, MAT.vermilionDark, x, 4.6, 0);
@@ -545,6 +395,13 @@ function createKaminarimon() {
       group.add(col);
     }
     box(group, 8.4, 0.18, 0.2, MAT.vermilionDark, 0, 7.65, z);
+    // Stepped bracket arms and pale end grain catch the light below the deep eaves.
+    for (const x of [-4,-2,0,2,4]) {
+      const sign = Math.sign(z);
+      box(group, .38,.18,.63, MAT.darkWood, x,7.40,z + sign*.17);
+      box(group, .70,.18,.77, MAT.vermilion, x,7.55,z + sign*.27);
+      box(group, .24,.14,.04, MAT.plaster, x,7.56,z + sign*.67);
+    }
   }
   box(group, 8.2, 2.3, 0.24, MAT.plaster, 0, 6.6, -2.15);
   for (const x of [-4.05, 4.05]) box(group, 0.24, 2.3, 4.2, MAT.plaster, x, 6.6, 0);
@@ -649,7 +506,12 @@ function createKaminarimon() {
       armGroup.rotation.x = a === s ? -0.2 : 0.18;
       niche.add(armGroup);
     }
-    niche.position.set(s * 4.0, 0, 2.2);
+    // Recessed guardian bays are framed by a fine timber grille.
+    for (const x of [-.85,.85]) box(niche, .105,3.45,.15, MAT.vermilionDark, x,1.98,.63);
+    for (const y of [1.06,3.56]) box(niche,1.78,.105,.16, MAT.darkWood, 0,y,.64);
+    for (let i = -4; i <= 4; i++) box(niche,.030,2.43,.042, MAT.darkWood, i*.173,2.30,.64);
+    box(niche,1.68,.035,.05, MAT.darkWood, 0,2.25,.65);
+    niche.position.set(s * 3.86, 0, 2.04);
     group.add(niche);
   }
   group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
@@ -657,7 +519,7 @@ function createKaminarimon() {
   light.position.set(0, 3.3, 1.1);
   group.add(light);
   return {
-    group,
+    group: batchRigidProp(group),
     colliders: [
       { type: 'box', x: -3.5, z: 0, w: 3.4, d: 5.9 },
       { type: 'box', x: 3.5, z: 0, w: 3.4, d: 5.9 },
@@ -727,7 +589,7 @@ function createHozomon() {
   light.position.set(0, 3.5, 1.3);
   group.add(light);
   return {
-    group,
+    group: batchRigidProp(group),
     colliders: [
       { type: 'box', x: -4.4, z: 0, w: 4.6, d: 5.9 },
       { type: 'box', x: 4.4, z: 0, w: 4.6, d: 5.9 },
@@ -845,7 +707,7 @@ function createHondo() {
   group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   platform.castShadow = false;
   return {
-    group,
+    group: batchRigidProp(group, [platform, ...stairs.walkables]),
     walkables: [platform, ...stairs.walkables],
     colliders: [
       { type: 'box', x: 0, z: 0, w: 16.2, d: 9.0 },
@@ -934,7 +796,7 @@ function createNakamiseShop(name, accent, seed = 1) {
     group.add(band);
   }
   group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-  return group;
+  return batchRigidProp(group);
 }
 
 function createInariShrine() {
@@ -1189,7 +1051,7 @@ function createEmaRack() {
   }
   group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   return {
-    group,
+    group: batchRigidProp(group),
     colliders: [{ type: 'box', x: 0, z: 0, w: 4.5, d: 0.8 }],
   };
 }
@@ -1216,7 +1078,7 @@ function createStreetLamp() {
   lamp.position.set(0, 5.22, 0.66);
   group.add(lamp);
   group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-  return group;
+  return batchRigidProp(group);
 }
 
 function createTrafficSignal() {
@@ -1296,7 +1158,7 @@ function createPostBox() {
     group.add(leg);
   }
   group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-  return group;
+  return batchRigidProp(group);
 }
 
 function createKeiVan(color = '#e7e4d8', { taxi = false } = {}) {
@@ -1351,7 +1213,7 @@ function createKeiVan(color = '#e7e4d8', { taxi = false } = {}) {
     group.add(stripe);
   }
   group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-  return group;
+  return batchRigidProp(group);
 }
 
 function createUtilityPole() {
@@ -1385,7 +1247,7 @@ function createUtilityPole() {
     step.position.set(0.16, 2.2 + i * 0.45, 0);
     group.add(step);
   }
-  return group;
+  return batchRigidProp(group);
 }
 
 function addWire(parent, a, b, { sag = 0.5, color = '#3e3b36', radius = 0.012 } = {}) {
@@ -1698,10 +1560,10 @@ export function createJapan(scene) {
     colliders.push({ type: 'box', x, z, w: 1.2, d: 0.95 });
   });
 
-  const welcome = createSign('浅草 · 東京', 'ASAKUSA · TOKYO', { width: 2.8, height: 1.0, postH: 2.2 });
+  const welcome = createSign('浅草 · 東京', 'ASAKUSA · TOKYO', { city: 'japan', width: 2.8, height: 1.0, postH: 2.2 });
   welcome.position.set(7.6, 0, 38.4);
   root.add(welcome);
-  const parkSign = createSign('芝公園', 'SHIBA PARK', { width: 2.4, height: 0.9, postH: 1.9 });
+  const parkSign = createSign('芝公園', 'SHIBA PARK', { city: 'japan', width: 2.4, height: 0.9, postH: 1.9 });
   parkSign.position.set(15.2, 0, -16.2);
   parkSign.rotation.y = 0.6;
   root.add(parkSign);
@@ -1840,8 +1702,6 @@ export function createJapan(scene) {
   // ---------------- people ----------------
   const hana = createNPC({
     id: 'hana', name: 'Hana', nameSub: '神社的巫女', marker: 'quest', questId: 'hana-bell',
-    scale: 0.97, style: 'dress', skin: '#f2cdb1', hairColor: '#33251f', hairStyle: 'long',
-    cloth: '#f4f0e6', cloth2: '#b84b47', accent: '#d06a63', accessory: 'shrine',
     pos: [7.2, 0, 6.3], yaw: -1.1,
     dialogues: {
       new: [
@@ -1860,14 +1720,11 @@ export function createJapan(scene) {
       ],
     },
   });
-  hana.root.position.set(7.2, 0, 6.3);
   root.add(hana.root);
 
   const ken = createNPC({
     id: 'ken', name: 'Ken', nameSub: '拉面师傅', marker: 'quest', questId: 'ken-cat',
-    scale: 1.05, style: 'coat', skin: '#d9a37c', hairColor: '#2e241f', hairStyle: 'short',
-    cloth: '#e9dfcd', cloth2: '#34465a', accent: '#c95b4e', hat: 'band', hatColor: '#f4ede0',
-    accessory: 'chef', pos: [14.8, 0, 22.5], yaw: 1.3,
+    pos: [14.8, 0, 22.5], yaw: 1.3,
     dialogues: {
       new: [
         'いらっしゃい！小心烫——噢，是你呀。我的招财猫不见了，没有它，汤头好像都少了一点福气。',
@@ -1885,20 +1742,18 @@ export function createJapan(scene) {
       ],
     },
   });
-  ken.root.position.set(14.8, 0, 22.5);
   root.add(ken.root);
 
-  const mochi = createMochi();
-  mochi.root.position.set(8.9, 0, 18.0);
-  mochi.root.rotation.y = -0.7;
-  root.add(mochi.root);
-  mochi.def.dialogues = {
-    hint: [
+  const mochi = createNPC({
+    id: 'mochi', name: 'Mochi', nameSub: '招财猫', species: 'cat', marker: 'hint',
+    pos: [8.9, 0, 18.0], yaw: -0.7,
+    dialogues: { hint: [
       '喵～（Mochi 伸了个懒腰，用尾巴指了指西边的樱花林。）',
       '喵嗷——（它又朝东边那串朱红鸟居抬了抬下巴，尾巴尖轻轻晃了晃。）',
       '喵。（它蹭了蹭你的靴子，好像在说：慢慢玩，别着急。）',
-    ],
-  };
+    ] },
+  });
+  root.add(mochi.root);
 
   const npcs = [hana, ken, mochi];
 

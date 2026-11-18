@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { batchRigidProp } from '../../core/static-meshes.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { TAU, instancedBeams, signTexture } from '../../core/utils.js';
 
@@ -159,40 +160,30 @@ export function createEiffel() {
     prev = cur;
   }
 
+  // The four arches span the outside faces and meet the flared legs below the deck.
+  for (let side = 0; side < 4; side++) {
+    const rotation = new THREE.Matrix4().makeRotationY(side*Math.PI/2);
+    const facePoint = (x, y, offset = 0) => new THREE.Vector3(x,y,c(y)+offset).applyMatrix4(rotation);
+    const samples = [];
+    for (let i = 0; i <= 32; i++) {
+      const u = i/16-1, y = 1.55 + 5.52*Math.sqrt(Math.max(0,1-u*u));
+      samples.push(facePoint(6.28*u,y,.52));
+      if (i>1 && i<31 && i%2===0) {
+        const upper = facePoint(6.28*u,8.17,.5);
+        segments.push({a:samples[i], b:upper, w:.07});
+        segments.push({a:upper,b:samples[i-2],w:.046});
+      }
+    }
+    const curve = new THREE.CatmullRomCurve3(samples);
+    const arch = new THREE.Mesh(new THREE.TubeGeometry(curve,40,.16,8,false), iron);
+    group.add(arch);
+  }
   group.add(instancedBeams(segments, iron));
 
-  /* arches */
-  const archMat = ironMat();
-  for (let side = 0; side < 4; side++) {
-    const rot = side * Math.PI / 2;
-    for (const off of [-0.45, 0.45]) {
-      const curve = new THREE.QuadraticBezierCurve3(
-        new THREE.Vector3(-5.0, 3.0, off),
-        new THREE.Vector3(0, 9.6, off),
-        new THREE.Vector3(5.0, 3.0, off),
-      );
-      const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 32, 0.14, 6, false), archMat);
-      tube.rotation.y = rot;
-      tube.castShadow = true;
-      group.add(tube);
-    }
-    for (let i = 1; i < 14; i++) {
-      const t = i / 14;
-      const curve = new THREE.QuadraticBezierCurve3(
-        new THREE.Vector3(-5.0, 3.0, -0.45), new THREE.Vector3(0, 9.6, -0.45), new THREE.Vector3(5.0, 3.0, -0.45),
-      );
-      const p = curve.getPoint(t);
-      const strut = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.07, 0.9), archMat);
-      strut.position.set(p.x, p.y, 0);
-      strut.rotation.y = rot;
-      group.add(strut);
-    }
-  }
-
   /* platforms */
-  platform(group, 12.6, 8.3, { thickness: 0.45, rails: 1.1, bulbs });
-  platform(group, 7.2, 15.5, { thickness: 0.4, rails: 1.0, bulbs });
-  platform(group, 3.6, 28.7, { thickness: 0.3, rails: 0.9, bulbs });
+  platform(group, 11.9, 8.3, { thickness: 0.35, rails: 0.82, bulbs });
+  platform(group, 5.65, 15.5, { thickness: 0.27, rails: 0.76, bulbs });
+  platform(group, 2.4, 28.7, { thickness: 0.19, rails: 0.58, bulbs });
 
   // first-level pavilions
   for (const [x, z, rot] of [[-4.4, -4.4, 0.4], [4.4, 4.4, -0.4]]) {
@@ -219,16 +210,16 @@ export function createEiffel() {
   const topCabin = new THREE.Group();
   const topGlass = glassMat();
   glassMats.push(topGlass);
-  const cabin = new THREE.Mesh(new THREE.BoxGeometry(2.8, 1.3, 2.8), topGlass);
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.85, 1.3, 1.85), topGlass);
   cabin.position.y = 30.8;
   topCabin.add(cabin);
-  const cabinRoof = new THREE.Mesh(new THREE.CylinderGeometry(2.1, 2.1, 0.35, 8), deckMat);
+  const cabinRoof = new THREE.Mesh(new THREE.CylinderGeometry(1.12, 1.36, 0.25, 8), deckMat);
   cabinRoof.position.y = 31.55;
   topCabin.add(cabinRoof);
   for (let i = 0; i < 8; i++) {
     const a = i / 8 * TAU;
     const post = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 1.3, 5), iron);
-    post.position.set(Math.cos(a) * 1.36, 30.8, Math.sin(a) * 1.36);
+    post.position.set(Math.cos(a) * 0.93, 30.8, Math.sin(a) * 0.93);
     topCabin.add(post);
   }
   // antenna
@@ -273,6 +264,8 @@ export function createEiffel() {
       o.receiveShadow = true;
     }
   });
+
+  batchRigidProp(group);
 
   /* bulbs */
   for (let i = 0; i < 8; i++) {

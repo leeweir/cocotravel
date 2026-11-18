@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { batchRigidProp } from '../core/static-meshes.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { canvas2d, canvasTexture, mulberry32, TAU } from '../core/utils.js';
 
@@ -773,7 +774,7 @@ export function createBuilding({
   group.add(plinth);
 
   group.userData = { width, depth, height, style, bayCount, floors };
-  return group;
+  return batchRigidProp(group);
 }
 
 /* Rows of buildings along a street; adds variation automatically. */
